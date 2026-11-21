@@ -1,0 +1,353 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
+import { 
+  ClipboardCheck, Plus, Search, Calendar, User, 
+  ChevronRight, MapPin, Zap, CheckCircle2, AlertCircle, X
+} from 'lucide-react';
+import { api } from '../../api/client.js';
+import Button from '../../components/common/Button.jsx';
+import Badge from '../../components/common/Badge.jsx';
+import Modal from '../../components/common/Modal.jsx';
+
+const SURVEY_STATUSES = [
+  'ALL',
+  'SCHEDULED',
+  'IN_PROGRESS',
+  'SUBMITTED',
+  'APPROVED',
+  'REVISION_REQUIRED'
+];
+
+export function SurveysListPage() {
+  const [surveys, setSurveys] = useState([]);
+  const [engineers, setEngineers] = useState([]);
+  const [leads, setLeads] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState('');
+
+  const [formData, setFormData] = useState({
+    lead_id: '',
+    assigned_engineer_id: '',
+    scheduled_at: '',
+    notes: ''
+  });
+
+  const fetchSurveys = useCallback(async (status = statusFilter, searchQuery = search) => {
+    setLoading(true);
+    try {
+      const query = { limit: 50 };
+      if (status !== 'ALL') query.status = status;
+      if (searchQuery && searchQuery.trim()) query.search = searchQuery.trim();
+
+      const res = await api.get('/surveys', query);
+      setSurveys(res?.data || []);
+    } catch (err) {
+      console.error('Failed to load surveys:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [statusFilter, search]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchSurveys(statusFilter, search);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [statusFilter, search, fetchSurveys]);
+
+  // Load leads and engineers for modal
+  const handleOpenScheduleModal = async () => {
+    setShowScheduleModal(true);
+    setFormError('');
+    try {
+      const [leadsRes, usersRes] = await Promise.all([
+        api.get('/crm/leads', { limit: 100 }),
+        api.get('/users', { limit: 100 })
+      ]);
+      setLeads(leadsRes?.data || []);
+      setEngineers(usersRes?.data || []);
+    } catch (err) {
+      console.error('Failed to load modal options:', err);
+    }
+  };
+
+  const handleScheduleSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setFormError('');
+
+    try {
+      await api.post('/surveys', {
+        lead_id: formData.lead_id,
+        assigned_engineer_id: formData.assigned_engineer_id,
+        scheduled_at: new Date(formData.scheduled_at).toISOString(),
+        notes: formData.notes
+      });
+
+      setShowScheduleModal(false);
+      setFormData({
+        lead_id: '',
+        assigned_engineer_id: '',
+        scheduled_at: '',
+        notes: ''
+      });
+      fetchSurveys(statusFilter, search);
+    } catch (err) {
+      setFormError(err.message || 'Failed to schedule survey.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'APPROVED':
+        return <Badge variant="success">APPROVED</Badge>;
+      case 'SUBMITTED':
+        return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">SUBMITTED</span>;
+      case 'IN_PROGRESS':
+        return <Badge variant="warning">IN PROGRESS</Badge>;
+      case 'REVISION_REQUIRED':
+        return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">REVISION</span>;
+      default:
+        return <Badge variant="info">SCHEDULED</Badge>;
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-bold text-midnight flex items-center gap-2">
+            <ClipboardCheck className="w-6 h-6 text-solar-gold" />
+            Site Surveys & Rooftop Engineering
+          </h2>
+          <p className="text-xs text-slate-500 mt-1">
+            Assign engineers, capture rooftop measurements, review feasibility, and size engineering BOMs.
+          </p>
+        </div>
+        <Button variant="accent" icon={Plus} onClick={handleOpenScheduleModal}>
+          Schedule Site Survey
+        </Button>
+      </div>
+
+      {/* Filter Tabs & Search Bar */}
+      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm space-y-4">
+        {/* Status Filter Tabs */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+          {SURVEY_STATUSES.map((st) => (
+            <button
+              key={st}
+              onClick={() => setStatusFilter(st)}
+              className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-colors ${
+                statusFilter === st
+                  ? 'bg-midnight text-white font-semibold'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              {st.replace(/_/g, ' ')}
+            </button>
+          ))}
+        </div>
+
+        {/* Search Input */}
+        <div className="relative">
+          <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search surveys by survey number (SRV-2026-...), customer name, or phone (+91)..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-9 pr-10 py-2 border border-slate-200 rounded-lg text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-midnight"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Surveys Table */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase tracking-wider">
+              <tr>
+                <th className="py-3.5 px-4">Survey ID</th>
+                <th className="py-3.5 px-4">Linked Lead / Prospect</th>
+                <th className="py-3.5 px-4">Assigned Engineer</th>
+                <th className="py-3.5 px-4">Proposed System</th>
+                <th className="py-3.5 px-4">Scheduled Date</th>
+                <th className="py-3.5 px-4">Status</th>
+                <th className="py-3.5 px-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center text-slate-400 text-sm">
+                    Loading site surveys...
+                  </td>
+                </tr>
+              ) : surveys.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center text-slate-400 text-sm">
+                    No site surveys found matching current criteria.
+                  </td>
+                </tr>
+              ) : (
+                surveys.map((srv) => (
+                  <tr key={srv.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="py-3.5 px-4 font-mono font-bold text-xs text-midnight">
+                      {srv.survey_number}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      {srv.leads ? (
+                        <div>
+                          <div className="font-semibold text-slate-900">{srv.leads.full_name}</div>
+                          <div className="font-mono text-xs text-slate-500">{srv.leads.phone_e164}</div>
+                        </div>
+                      ) : srv.customers ? (
+                        <div>
+                          <div className="font-semibold text-slate-900">{srv.customers.full_name}</div>
+                          <div className="font-mono text-xs text-slate-500">{srv.customers.customer_code}</div>
+                        </div>
+                      ) : (
+                        <span className="text-slate-400 text-xs italic">Unassigned entity</span>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      <div className="flex items-center gap-1.5 text-xs text-slate-800 font-medium">
+                        <User className="w-3.5 h-3.5 text-slate-400" />
+                        {srv.engineer?.full_name || 'Unassigned'}
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-4 font-mono text-xs">
+                      {srv.proposed_capacity_kw ? (
+                        <div>
+                          <span className="font-bold text-midnight">{srv.proposed_capacity_kw} kW</span>
+                          <span className="block text-[11px] text-slate-500 font-sans">{srv.roof_type?.replace(/_/g, ' ') || 'Roof TBD'}</span>
+                        </div>
+                      ) : (
+                        <span className="text-slate-400">Specs pending</span>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-4 font-mono text-xs text-slate-600">
+                      {new Date(srv.scheduled_at).toLocaleDateString('en-IN', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric'
+                      })}
+                    </td>
+                    <td className="py-3.5 px-4">
+                      {getStatusBadge(srv.status)}
+                    </td>
+                    <td className="py-3.5 px-4 text-right">
+                      <Link to={`/surveys/${srv.id}`}>
+                        <Button variant="outline" size="sm" icon={ChevronRight}>
+                          Open Feasibility
+                        </Button>
+                      </Link>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Schedule Survey Modal */}
+      <Modal
+        isOpen={showScheduleModal}
+        onClose={() => setShowScheduleModal(false)}
+        title="Schedule Rooftop Site Survey"
+        maxWidth="max-w-xl"
+      >
+        <form onSubmit={handleScheduleSubmit} className="space-y-4">
+          {formError && (
+            <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs">
+              {formError}
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1">Select Lead / Prospect *</label>
+            <select
+              required
+              value={formData.lead_id}
+              onChange={(e) => setFormData({ ...formData, lead_id: e.target.value })}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
+            >
+              <option value="">Select a Lead...</option>
+              {leads.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.full_name} ({l.phone_e164}) — {l.lead_number} [{l.stage}]
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1">Assign Survey Engineer *</label>
+            <select
+              required
+              value={formData.assigned_engineer_id}
+              onChange={(e) => setFormData({ ...formData, assigned_engineer_id: e.target.value })}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
+            >
+              <option value="">Select Field Engineer...</option>
+              {engineers.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.full_name} ({u.roles?.join(', ') || 'Staff'})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1">Scheduled Date & Time *</label>
+            <input
+              type="datetime-local"
+              required
+              value={formData.scheduled_at}
+              onChange={(e) => setFormData({ ...formData, scheduled_at: e.target.value })}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1">Site Access Notes & Instructions</label>
+            <textarea
+              rows={3}
+              placeholder="e.g. Roof access via internal stairs. Customer available between 11 AM - 1 PM..."
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
+            <Button variant="outline" type="button" onClick={() => setShowScheduleModal(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" type="submit" loading={submitting}>
+              Schedule Survey
+            </Button>
+          </div>
+        </form>
+      </Modal>
+    </div>
+  );
+}
+export default SurveysListPage;

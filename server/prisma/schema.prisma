@@ -91,6 +91,8 @@ model customers {
   customer_documents customer_documents[]
   users              users?               @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   leads              leads[]
+  project_boms       project_boms[]
+  surveys            surveys[]
 
   @@index([customer_code], map: "idx_customers_code")
   @@index([created_at(sort: Desc)], map: "idx_customers_created_at")
@@ -99,15 +101,16 @@ model customers {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model file_records {
-  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  original_name String    @db.VarChar(255)
+  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  original_name String          @db.VarChar(255)
   storage_path  String
-  mime_type     String    @db.VarChar(100)
+  mime_type     String          @db.VarChar(100)
   size_bytes    BigInt
-  category      String    @db.VarChar(50)
-  uploaded_by   String?   @db.Uuid
-  created_at    DateTime  @default(now()) @db.Timestamptz(6)
-  deleted_at    DateTime? @db.Timestamptz(6)
+  category      String          @db.VarChar(50)
+  uploaded_by   String?         @db.Uuid
+  created_at    DateTime        @default(now()) @db.Timestamptz(6)
+  deleted_at    DateTime?       @db.Timestamptz(6)
+  survey_photos survey_photos[]
 
   @@index([category], map: "idx_file_records_category")
 }
@@ -188,6 +191,8 @@ model leads {
   users_leads_assigned_toTousers users?            @relation("leads_assigned_toTousers", fields: [assigned_to], references: [id], onUpdate: NoAction)
   users_leads_created_byTousers  users?            @relation("leads_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   customers                      customers?        @relation(fields: [customer_id], references: [id], onUpdate: NoAction)
+  project_boms                   project_boms[]
+  surveys                        surveys[]
 
   @@index([assigned_to], map: "idx_leads_assigned_to")
   @@index([created_at(sort: Desc)], map: "idx_leads_created_at")
@@ -289,29 +294,282 @@ model user_roles {
 }
 
 model users {
-  id                             String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email                          String               @unique @db.VarChar(255)
-  phone_e164                     String               @unique @db.VarChar(20)
-  password_hash                  String               @db.VarChar(255)
-  full_name                      String               @db.VarChar(150)
-  is_active                      Boolean              @default(true)
-  failed_login_attempts          Int                  @default(0)
-  locked_until                   DateTime?            @db.Timestamptz(6)
-  password_reset_token_hash      String?              @db.VarChar(64)
-  password_reset_expires_at      DateTime?            @db.Timestamptz(6)
-  created_at                     DateTime             @default(now()) @db.Timestamptz(6)
-  updated_at                     DateTime             @default(now()) @db.Timestamptz(6)
-  deleted_at                     DateTime?            @db.Timestamptz(6)
-  customer_documents             customer_documents[]
-  customers                      customers[]
-  follow_ups                     follow_ups[]
-  lead_activities                lead_activities[]
-  leads_leads_assigned_toTousers leads[]              @relation("leads_assigned_toTousers")
-  leads_leads_created_byTousers  leads[]              @relation("leads_created_byTousers")
-  login_events                   login_events[]
-  refresh_tokens                 refresh_tokens[]
-  user_roles                     user_roles[]
+  id                                           String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                                        String               @unique @db.VarChar(255)
+  phone_e164                                   String               @unique @db.VarChar(20)
+  password_hash                                String               @db.VarChar(255)
+  full_name                                    String               @db.VarChar(150)
+  is_active                                    Boolean              @default(true)
+  failed_login_attempts                        Int                  @default(0)
+  locked_until                                 DateTime?            @db.Timestamptz(6)
+  password_reset_token_hash                    String?              @db.VarChar(64)
+  password_reset_expires_at                    DateTime?            @db.Timestamptz(6)
+  created_at                                   DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at                                   DateTime             @default(now()) @db.Timestamptz(6)
+  deleted_at                                   DateTime?            @db.Timestamptz(6)
+  customer_documents                           customer_documents[]
+  customers                                    customers[]
+  follow_ups                                   follow_ups[]
+  lead_activities                              lead_activities[]
+  leads_leads_assigned_toTousers               leads[]              @relation("leads_assigned_toTousers")
+  leads_leads_created_byTousers                leads[]              @relation("leads_created_byTousers")
+  login_events                                 login_events[]
+  product_prices                               product_prices[]
+  project_boms_project_boms_approved_byTousers project_boms[]       @relation("project_boms_approved_byTousers")
+  project_boms_project_boms_created_byTousers  project_boms[]       @relation("project_boms_created_byTousers")
+  refresh_tokens                               refresh_tokens[]
+  surveys_surveys_assigned_engineer_idTousers  surveys[]            @relation("surveys_assigned_engineer_idTousers")
+  surveys_surveys_created_byTousers            surveys[]            @relation("surveys_created_byTousers")
+  surveys_surveys_reviewed_byTousers           surveys[]            @relation("surveys_reviewed_byTousers")
+  user_roles                                   user_roles[]
 
   @@index([email], map: "idx_users_email")
   @@index([phone_e164], map: "idx_users_phone")
+}
+
+model product_categories {
+  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String     @unique @db.VarChar(50)
+  name        String     @db.VarChar(100)
+  description String?
+  is_active   Boolean    @default(true)
+  created_at  DateTime   @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime   @default(now()) @db.Timestamptz(6)
+  products    products[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model products {
+  id                     String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  category_id            String                  @db.Uuid
+  sku                    String                  @unique @db.VarChar(100)
+  brand                  String                  @db.VarChar(100)
+  model_name             String                  @db.VarChar(150)
+  rated_capacity_w       Decimal?                @db.Decimal(10, 2)
+  unit_code              String                  @default("NOS") @db.VarChar(20)
+  standard_cost          Decimal                 @default(0.00) @db.Decimal(14, 2)
+  tax_rate_pct           Decimal                 @default(12.00) @db.Decimal(5, 2)
+  hsn_code               String?                 @default("85414011") @db.VarChar(20)
+  is_serial_tracked      Boolean                 @default(false)
+  is_active              Boolean                 @default(true)
+  metadata               Json                    @default("{}")
+  created_at             DateTime                @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime                @default(now()) @db.Timestamptz(6)
+  deleted_at             DateTime?               @db.Timestamptz(6)
+  product_prices         product_prices[]
+  product_specifications product_specifications?
+  product_categories     product_categories      @relation(fields: [category_id], references: [id], onUpdate: NoAction)
+  project_bom_items      project_bom_items[]
+
+  @@index([brand], map: "idx_products_brand")
+  @@index([category_id], map: "idx_products_category")
+  @@index([sku], map: "idx_products_sku")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model project_bom_items {
+  id           String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bom_id       String       @db.Uuid
+  product_id   String       @db.Uuid
+  quantity     Decimal      @db.Decimal(10, 2)
+  unit_cost    Decimal      @default(0.00) @db.Decimal(14, 2)
+  total_cost   Decimal      @default(0.00) @db.Decimal(14, 2)
+  notes        String?      @db.VarChar(255)
+  created_at   DateTime     @default(now()) @db.Timestamptz(6)
+  project_boms project_boms @relation(fields: [bom_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products     products     @relation(fields: [product_id], references: [id], onUpdate: NoAction)
+
+  @@index([bom_id], map: "idx_bom_items_bom")
+  @@index([product_id], map: "idx_bom_items_product")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model project_boms {
+  id                                    String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bom_number                            String              @unique @db.VarChar(50)
+  survey_id                             String?             @db.Uuid
+  lead_id                               String?             @db.Uuid
+  customer_id                           String?             @db.Uuid
+  version                               Int                 @default(1)
+  system_capacity_kw                    Decimal             @db.Decimal(10, 2)
+  status                                String              @default("DRAFT") @db.VarChar(50)
+  total_cost                            Decimal             @default(0.00) @db.Decimal(14, 2)
+  created_by                            String?             @db.Uuid
+  approved_by                           String?             @db.Uuid
+  approved_at                           DateTime?           @db.Timestamptz(6)
+  created_at                            DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at                            DateTime            @default(now()) @db.Timestamptz(6)
+  generation_mode                       String              @default("PRELIMINARY") @db.VarChar(50)
+  is_approval_blocked                   Boolean             @default(false)
+  engineering_snapshot                  Json                @default("{}")
+  bom_validations                       bom_validations[]
+  project_bom_items                     project_bom_items[]
+  users_project_boms_approved_byTousers users?              @relation("project_boms_approved_byTousers", fields: [approved_by], references: [id], onUpdate: NoAction)
+  users_project_boms_created_byTousers  users?              @relation("project_boms_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction)
+  customers                             customers?          @relation(fields: [customer_id], references: [id], onUpdate: NoAction)
+  leads                                 leads?              @relation(fields: [lead_id], references: [id], onUpdate: NoAction)
+  surveys                               surveys?            @relation(fields: [survey_id], references: [id], onUpdate: NoAction)
+
+  @@index([lead_id], map: "idx_boms_lead")
+  @@index([status], map: "idx_boms_status")
+  @@index([survey_id], map: "idx_boms_survey")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model survey_photos {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  survey_id      String        @db.Uuid
+  photo_category String        @db.VarChar(50)
+  file_record_id String?       @db.Uuid
+  file_url       String?       @db.VarChar(500)
+  caption        String?       @db.VarChar(255)
+  lat            Decimal?      @db.Decimal(10, 7)
+  lng            Decimal?      @db.Decimal(10, 7)
+  created_at     DateTime      @default(now()) @db.Timestamptz(6)
+  file_records   file_records? @relation(fields: [file_record_id], references: [id], onUpdate: NoAction)
+  surveys        surveys       @relation(fields: [survey_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([survey_id], map: "idx_survey_photos_survey")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model surveys {
+  id                                        String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  survey_number                             String          @unique @db.VarChar(50)
+  lead_id                                   String?         @db.Uuid
+  customer_id                               String?         @db.Uuid
+  assigned_engineer_id                      String?         @db.Uuid
+  scheduled_at                              DateTime        @db.Timestamptz(6)
+  status                                    String          @default("SCHEDULED") @db.VarChar(50)
+  roof_type                                 String?         @db.VarChar(50)
+  shadow_free_area_sqft                     Decimal?        @db.Decimal(10, 2)
+  proposed_capacity_kw                      Decimal?        @db.Decimal(10, 2)
+  sanctioned_load_kw                        Decimal?        @db.Decimal(10, 2)
+  supply_phase                              String?         @default("SINGLE") @db.VarChar(20)
+  discom_provider                           String?         @db.VarChar(100)
+  consumer_number                           String?         @db.VarChar(50)
+  distance_roof_to_meter_m                  Decimal?        @db.Decimal(10, 2)
+  earthing_pits_needed                      Int?            @default(2)
+  structure_type                            String?         @default("STANDARD_GI") @db.VarChar(50)
+  notes                                     String?
+  reviewed_by                               String?         @db.Uuid
+  reviewed_at                               DateTime?       @db.Timestamptz(6)
+  review_comments                           String?
+  created_by                                String?         @db.Uuid
+  created_at                                DateTime        @default(now()) @db.Timestamptz(6)
+  updated_at                                DateTime        @default(now()) @db.Timestamptz(6)
+  deleted_at                                DateTime?       @db.Timestamptz(6)
+  project_boms                              project_boms[]
+  survey_photos                             survey_photos[]
+  users_surveys_assigned_engineer_idTousers users?          @relation("surveys_assigned_engineer_idTousers", fields: [assigned_engineer_id], references: [id], onUpdate: NoAction)
+  users_surveys_created_byTousers           users?          @relation("surveys_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction)
+  customers                                 customers?      @relation(fields: [customer_id], references: [id], onUpdate: NoAction)
+  leads                                     leads?          @relation(fields: [lead_id], references: [id], onUpdate: NoAction)
+  users_surveys_reviewed_byTousers          users?          @relation("surveys_reviewed_byTousers", fields: [reviewed_by], references: [id], onUpdate: NoAction)
+
+  @@index([created_at(sort: Desc)], map: "idx_surveys_created_at")
+  @@index([customer_id], map: "idx_surveys_customer")
+  @@index([assigned_engineer_id], map: "idx_surveys_engineer")
+  @@index([lead_id], map: "idx_surveys_lead")
+  @@index([status], map: "idx_surveys_status")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model bom_validations {
+  id                    String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bom_id                String       @db.Uuid
+  code                  String       @db.VarChar(100)
+  severity              String       @db.VarChar(20)
+  component             String       @db.VarChar(50)
+  description           String
+  expected_value        String?      @db.VarChar(255)
+  actual_value          String?      @db.VarChar(255)
+  technical_explanation String?
+  recommended_action    String?
+  created_at            DateTime     @default(now()) @db.Timestamptz(6)
+  project_boms          project_boms @relation(fields: [bom_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([bom_id], map: "idx_bom_validations_bom")
+  @@index([severity], map: "idx_bom_validations_severity")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model product_prices {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  product_id     String    @db.Uuid
+  unit_cost      Decimal   @db.Decimal(14, 2)
+  currency       String    @default("INR") @db.VarChar(10)
+  effective_from DateTime  @default(now()) @db.Timestamptz(6)
+  effective_to   DateTime? @db.Timestamptz(6)
+  supplier_name  String?   @db.VarChar(150)
+  notes          String?
+  created_by     String?   @db.Uuid
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+  users          users?    @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+  products       products  @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([product_id, effective_from, effective_to], map: "idx_prod_prices_dates")
+  @@index([product_id], map: "idx_prod_prices_product")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model product_specifications {
+  id                           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  product_id                   String   @unique @db.Uuid
+  category_code                String   @db.VarChar(50)
+  rated_power_w                Decimal? @db.Decimal(10, 2)
+  voc_v                        Decimal? @db.Decimal(8, 2)
+  vmp_v                        Decimal? @db.Decimal(8, 2)
+  isc_a                        Decimal? @db.Decimal(8, 2)
+  imp_a                        Decimal? @db.Decimal(8, 2)
+  temp_coeff_voc_pct           Decimal? @default(-0.270) @db.Decimal(6, 3)
+  temp_coeff_pmax_pct          Decimal? @default(-0.350) @db.Decimal(6, 3)
+  max_system_voltage_v         Decimal? @default(1500.00) @db.Decimal(8, 2)
+  length_mm                    Decimal? @db.Decimal(8, 2)
+  width_mm                     Decimal? @db.Decimal(8, 2)
+  weight_kg                    Decimal? @db.Decimal(8, 2)
+  max_series_fuse_rating_a     Decimal? @default(25.00) @db.Decimal(6, 2)
+  rated_ac_power_w             Decimal? @db.Decimal(10, 2)
+  max_dc_power_w               Decimal? @db.Decimal(10, 2)
+  max_dc_voltage_v             Decimal? @db.Decimal(8, 2)
+  mppt_voltage_min_v           Decimal? @db.Decimal(8, 2)
+  mppt_voltage_max_v           Decimal? @db.Decimal(8, 2)
+  mppt_nominal_voltage_v       Decimal? @db.Decimal(8, 2)
+  mppt_trackers                Int?     @default(1)
+  inputs_per_mppt              Int?     @default(1)
+  max_input_current_per_mppt_a Decimal? @db.Decimal(8, 2)
+  max_short_circuit_current_a  Decimal? @db.Decimal(8, 2)
+  phase                        String?  @default("SINGLE") @db.VarChar(20)
+  nominal_ac_voltage_v         Decimal? @default(230.00) @db.Decimal(8, 2)
+  max_ac_current_a             Decimal? @db.Decimal(8, 2)
+  max_efficiency_pct           Decimal? @default(98.40) @db.Decimal(5, 2)
+  supported_roof_types         Json     @default("[]")
+  material                     String?  @db.VarChar(100)
+  coating_thickness_microns    Decimal? @db.Decimal(6, 2)
+  wind_speed_rating_kmph       Decimal? @default(150.00) @db.Decimal(6, 2)
+  tilt_angle_min_deg           Decimal? @default(10.00) @db.Decimal(5, 2)
+  tilt_angle_max_deg           Decimal? @default(25.00) @db.Decimal(5, 2)
+  ground_clearance_mm          Decimal? @default(300.00) @db.Decimal(8, 2)
+  conductor_material           String?  @default("Copper") @db.VarChar(50)
+  cross_section_sqmm           Decimal? @db.Decimal(6, 2)
+  cores                        Int?     @default(1)
+  voltage_rating_v             Decimal? @default(1100.00) @db.Decimal(8, 2)
+  current_carrying_capacity_a  Decimal? @db.Decimal(8, 2)
+  resistance_ohm_per_km        Decimal? @db.Decimal(8, 4)
+  is_uv_resistant              Boolean? @default(false)
+  is_armored                   Boolean? @default(false)
+  rated_voltage_v              Decimal? @db.Decimal(8, 2)
+  rated_current_a              Decimal? @db.Decimal(8, 2)
+  poles                        Int?     @default(2)
+  spd_type                     String?  @default("Type 2") @db.VarChar(50)
+  spd_voltage_rating_v         Decimal? @db.Decimal(8, 2)
+  fuse_rating_a                Decimal? @db.Decimal(6, 2)
+  ip_rating                    String?  @default("IP65") @db.VarChar(20)
+  attributes                   Json     @default("{}")
+  created_at                   DateTime @default(now()) @db.Timestamptz(6)
+  updated_at                   DateTime @default(now()) @db.Timestamptz(6)
+  products                     products @relation(fields: [product_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([category_code], map: "idx_prod_specs_category")
+  @@index([product_id], map: "idx_prod_specs_product")
 }

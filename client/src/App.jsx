@@ -11,6 +11,9 @@ import { LeadDetailPage } from './pages/leads/LeadDetailPage';
 import { CustomersListPage } from './pages/customers/CustomersListPage';
 import { CustomerDetailPage } from './pages/customers/CustomerDetailPage';
 import { UsersListPage } from './pages/users/UsersListPage';
+import { SurveysListPage } from './pages/surveys/SurveysListPage';
+import { SurveyDetailPage } from './pages/surveys/SurveyDetailPage';
+import { CatalogPage } from './pages/catalog/CatalogPage';
 
 // Auth Guard Wrapper
 const ProtectedRoute = () => {
@@ -75,6 +78,9 @@ export const App = () => {
             <Route path="/leads/:id" element={<LeadDetailPage />} />
             <Route path="/customers" element={<CustomersListPage />} />
             <Route path="/customers/:id" element={<CustomerDetailPage />} />
+            <Route path="/surveys" element={<SurveysListPage />} />
+            <Route path="/surveys/:id" element={<SurveyDetailPage />} />
+            <Route path="/catalog" element={<CatalogPage />} />
             <Route path="/users" element={<UsersListPage />} />
           </Route>
 

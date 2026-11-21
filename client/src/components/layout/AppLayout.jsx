@@ -10,7 +10,9 @@ import {
   Layers,
   FileText,
   Calendar,
-  ChevronRight
+  ChevronRight,
+  ClipboardCheck,
+  Package
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
 import Badge from '../common/Badge.jsx';
@@ -42,6 +44,18 @@ export function AppLayout() {
       label: 'Customers',
       icon: Users,
       permission: 'customers:read'
+    },
+    {
+      to: '/surveys',
+      label: 'Site Surveys',
+      icon: ClipboardCheck,
+      permission: 'surveys:read'
+    },
+    {
+      to: '/catalog',
+      label: 'Product Catalog',
+      icon: Package,
+      permission: 'catalog:read'
     },
     {
       to: '/users',

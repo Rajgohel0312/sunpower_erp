@@ -17,7 +17,8 @@ import {
   UserCheck,
   AlertCircle,
   XCircle,
-  Plus
+  Plus,
+  ClipboardCheck
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import Button from '../../components/common/Button.jsx';
@@ -34,6 +35,9 @@ export function LeadDetailPage() {
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [showFollowUpModal, setShowFollowUpModal] = useState(false);
   const [showLostModal, setShowLostModal] = useState(false);
+  const [showSurveyModal, setShowSurveyModal] = useState(false);
+  const [engineers, setEngineers] = useState([]);
+  const [surveyFormData, setSurveyFormData] = useState({ assigned_engineer_id: '', scheduled_at: '', notes: '' });
   const [submitting, setSubmitting] = useState(false);
 
   // Forms
@@ -251,6 +255,36 @@ export function LeadDetailPage() {
     }
   };
 
+  const handleOpenSurveyModal = async () => {
+    setShowSurveyModal(true);
+    try {
+      const res = await api.get('/users', { limit: 100 });
+      setEngineers(res?.data || []);
+    } catch (err) {
+      console.error('Failed to load users for survey:', err);
+    }
+  };
+
+  const handleScheduleSurvey = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      await api.post('/surveys', {
+        lead_id: id,
+        assigned_engineer_id: surveyFormData.assigned_engineer_id,
+        scheduled_at: new Date(surveyFormData.scheduled_at).toISOString(),
+        notes: surveyFormData.notes
+      });
+      setShowSurveyModal(false);
+      setSurveyFormData({ assigned_engineer_id: '', scheduled_at: '', notes: '' });
+      await fetchLead();
+    } catch (err) {
+      alert(err.message || 'Failed to schedule survey');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   if (loading) {
     return <div className="p-12 text-center text-slate-500 text-sm">Loading lead file...</div>;
   }
@@ -293,9 +327,16 @@ export function LeadDetailPage() {
             </Button>
           )}
           {lead.stage === 'QUALIFIED' && (
-            <Button variant="primary" size="sm" onClick={() => handleStageTransition('SURVEY_SCHEDULED')}>
-              Schedule Survey
+            <Button variant="accent" size="sm" icon={ClipboardCheck} onClick={handleOpenSurveyModal}>
+              Schedule Site Survey
             </Button>
+          )}
+          {(lead.stage === 'SURVEY_SCHEDULED' || lead.stage === 'SURVEY_APPROVED') && (
+            <Link to={`/surveys?search=${encodeURIComponent(lead.lead_number)}`}>
+              <Button variant="outline" size="sm" icon={ClipboardCheck}>
+                View Site Survey
+              </Button>
+            </Link>
           )}
 
           {/* Convert to Customer Button */}
@@ -571,6 +612,63 @@ export function LeadDetailPage() {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* Schedule Survey Modal */}
+      <Modal
+        isOpen={showSurveyModal}
+        onClose={() => setShowSurveyModal(false)}
+        title="Schedule Rooftop Site Survey"
+      >
+        <form onSubmit={handleScheduleSurvey} className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1">Assign Survey Engineer *</label>
+            <select
+              required
+              value={surveyFormData.assigned_engineer_id}
+              onChange={(e) => setSurveyFormData({ ...surveyFormData, assigned_engineer_id: e.target.value })}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
+            >
+              <option value="">Select Field Engineer...</option>
+              {engineers.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.full_name} ({u.roles?.join(', ') || 'Staff'})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1">Scheduled Date & Time *</label>
+            <input
+              type="datetime-local"
+              required
+              value={surveyFormData.scheduled_at}
+              onChange={(e) => setSurveyFormData({ ...surveyFormData, scheduled_at: e.target.value })}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1">Site Access Instructions</label>
+            <textarea
+              rows={3}
+              placeholder="e.g. Terrace access through internal stairs..."
+              value={surveyFormData.notes}
+              onChange={(e) => setSurveyFormData({ ...surveyFormData, notes: e.target.value })}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" type="button" onClick={() => setShowSurveyModal(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" type="submit" loading={submitting}>
+              Schedule Survey
+            </Button>
+          </div>
+        </form>
       </Modal>
     </div>
   );

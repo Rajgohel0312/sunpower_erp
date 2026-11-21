@@ -15,6 +15,9 @@ import { AppError } from './utils/response.js';
 import { authRouter } from './modules/auth/auth.routes.js';
 import { userRouter } from './modules/users/user.routes.js';
 import crmRouter from './modules/crm/crm.routes.js';
+import { catalogRouter } from './modules/catalog/catalog.routes.js';
+import { surveyRouter } from './modules/surveys/survey.routes.js';
+import { bomRouter } from './modules/bom/bom.routes.js';
 
 export const app = express();
 
@@ -51,6 +54,9 @@ const apiV1 = express.Router();
 apiV1.use('/auth', authRouter);
 apiV1.use('/users', userRouter);
 apiV1.use('/crm', crmRouter);
+apiV1.use('/catalog', catalogRouter);
+apiV1.use('/surveys', surveyRouter);
+apiV1.use('/boms', bomRouter);
 apiV1.use('/', crmRouter);
 
 app.use('/api/v1', apiV1);
