@@ -77,10 +77,8 @@ export const userRepository = {
    * Creates a user and assigns roles in a transaction
    */
   async createUser(userData, roleCodes, client = null) {
-    const target = client || db;
-
     // 1. Insert user
-    const newUser = await target
+    const newUser = await db
       .insertInto('users', {
         email: userData.email,
         phone_e164: userData.phone_e164,
@@ -93,7 +91,7 @@ export const userRepository = {
 
     // 2. Fetch role IDs for the requested codes
     if (roleCodes && roleCodes.length > 0) {
-      const roles = await target
+      const roles = await db
         .select('id', 'code')
         .from('roles')
         .whereIn('code', roleCodes)
@@ -105,7 +103,7 @@ export const userRepository = {
       }));
 
       if (userRoleRows.length > 0) {
-        await target.insertInto('user_roles', userRoleRows).execute(client);
+        await db.insertInto('user_roles', userRoleRows).execute(client);
       }
       newUser.roles = roles.map(r => r.code);
     }
@@ -117,10 +115,8 @@ export const userRepository = {
    * Updates user and reassigns roles
    */
   async updateUser(id, updateData, roleCodes, client = null) {
-    const target = client || db;
-
     if (Object.keys(updateData).length > 0) {
-      await target
+      await db
         .update('users', {
           ...updateData,
           updated_at: new Date()
@@ -131,9 +127,9 @@ export const userRepository = {
 
     if (roleCodes) {
       // Clear existing roles
-      await target.deleteFrom('user_roles').where('user_id', '=', id).execute(client);
+      await db.deleteFrom('user_roles').where('user_id', '=', id).execute(client);
 
-      const roles = await target
+      const roles = await db
         .select('id', 'code')
         .from('roles')
         .whereIn('code', roleCodes)
@@ -145,7 +141,7 @@ export const userRepository = {
       }));
 
       if (userRoleRows.length > 0) {
-        await target.insertInto('user_roles', userRoleRows).execute(client);
+        await db.insertInto('user_roles', userRoleRows).execute(client);
       }
     }
 

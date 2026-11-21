@@ -42,6 +42,14 @@ export class DatabaseError extends Error {
 export function mapDatabaseError(err) {
   if (err instanceof DatabaseError) return err;
 
+  // Preserve AppError or standard non-database errors
+  if (err?.name === 'AppError' || err?.statusCode) return err;
+
+  // If error has no standard 5-character PostgreSQL code, don't mask it
+  if (!err?.code || typeof err.code !== 'string' || err.code.length !== 5) {
+    return err;
+  }
+
   // PostgreSQL Error Code 23505 = unique_violation
   if (err.code === '23505') {
     return new DatabaseError(
