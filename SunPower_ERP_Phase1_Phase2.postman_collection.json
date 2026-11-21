@@ -94,10 +94,17 @@
               "script": {
                 "exec": [
                   "const jsonData = pm.response.json();",
-                  "if (jsonData.success && jsonData.data && jsonData.data.tokens) {",
-                  "    pm.collectionVariables.set('accessToken', jsonData.data.tokens.accessToken);",
-                  "    pm.collectionVariables.set('refreshToken', jsonData.data.tokens.refreshToken);",
-                  "    console.log('[Postman] Access token and refresh token successfully saved to collection variables.');",
+                  "if (jsonData && jsonData.success && jsonData.data) {",
+                  "    const access = jsonData.data.accessToken || (jsonData.data.tokens && jsonData.data.tokens.accessToken);",
+                  "    const refresh = jsonData.data.refreshToken || (jsonData.data.tokens && jsonData.data.tokens.refreshToken);",
+                  "    if (access) {",
+                  "        pm.collectionVariables.set('accessToken', access);",
+                  "        console.log('[Postman] Access token successfully captured in collection variables.');",
+                  "    }",
+                  "    if (refresh) {",
+                  "        pm.collectionVariables.set('refreshToken', refresh);",
+                  "        console.log('[Postman] Refresh token successfully captured in collection variables.');",
+                  "    }",
                   "}"
                 ],
                 "type": "text/javascript"
@@ -148,10 +155,17 @@
               "script": {
                 "exec": [
                   "const jsonData = pm.response.json();",
-                  "if (jsonData.success && jsonData.data && jsonData.data.tokens) {",
-                  "    pm.collectionVariables.set('accessToken', jsonData.data.tokens.accessToken);",
-                  "    pm.collectionVariables.set('refreshToken', jsonData.data.tokens.refreshToken);",
-                  "    console.log('[Postman] Rotated access and refresh tokens updated in collection variables.');",
+                  "if (jsonData && jsonData.success && jsonData.data) {",
+                  "    const access = jsonData.data.accessToken || (jsonData.data.tokens && jsonData.data.tokens.accessToken);",
+                  "    const refresh = jsonData.data.refreshToken || (jsonData.data.tokens && jsonData.data.tokens.refreshToken);",
+                  "    if (access) {",
+                  "        pm.collectionVariables.set('accessToken', access);",
+                  "        console.log('[Postman] Rotated access token captured in collection variables.');",
+                  "    }",
+                  "    if (refresh) {",
+                  "        pm.collectionVariables.set('refreshToken', refresh);",
+                  "        console.log('[Postman] Rotated refresh token captured in collection variables.');",
+                  "    }",
                   "}"
                 ],
                 "type": "text/javascript"

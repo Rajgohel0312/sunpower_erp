@@ -37,6 +37,11 @@ export const authController = {
 
       return sendSuccess(res, {
         accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+        tokens: {
+          accessToken: result.accessToken,
+          refreshToken: result.refreshToken
+        },
         user: result.user
       }, { message: 'Authentication successful' });
     } catch (err) {
@@ -63,7 +68,12 @@ export const authController = {
       res.cookie('refresh_token', result.refreshToken, COOKIE_OPTIONS);
 
       return sendSuccess(res, {
-        accessToken: result.accessToken
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+        tokens: {
+          accessToken: result.accessToken,
+          refreshToken: result.refreshToken
+        }
       }, { message: 'Token refreshed' });
     } catch (err) {
       next(err);
