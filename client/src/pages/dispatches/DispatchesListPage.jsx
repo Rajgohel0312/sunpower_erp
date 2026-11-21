@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   Truck,
   Plus,
@@ -17,7 +17,9 @@ import {
   User,
   Phone,
   ShieldAlert,
-  ArrowRight
+  ArrowRight,
+  Sparkles,
+  RefreshCw
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { useDebounce } from '../../hooks/useDebounce.js';
@@ -64,6 +66,70 @@ export function DispatchesListPage() {
     { product_id: '', quantity: 1 }
   ]);
   const [serialsText, setSerialsText] = useState('');
+
+  // Auto-fetch & Auto-fill State
+  const [searchParams] = useSearchParams();
+  const urlOrderId = searchParams.get('order_id');
+  const [autoFillLoading, setAutoFillLoading] = useState(false);
+  const [autoFillMessage, setAutoFillMessage] = useState('');
+
+  // Auto-Fetch & Auto-Fill from Selected Sales Order
+  const handleSelectOrder = async (orderId) => {
+    setDispatchOrderId(orderId);
+    if (!orderId) {
+      setAutoFillMessage('');
+      return;
+    }
+
+    setAutoFillLoading(true);
+    setAutoFillMessage('');
+    try {
+      // 1. Fetch full order snapshot
+      const orderRes = await api.get(`/orders/${orderId}`);
+      const order = orderRes?.data;
+
+      // 2. Fetch reserved serial numbers
+      const serialsRes = await api.get('/inventory/serials', { current_order_id: orderId, limit: 100 });
+      const reservedSerials = serialsRes?.data || [];
+
+      // 3. Auto-fill line items from snapshot_data.items
+      if (order?.snapshot_data?.items && order.snapshot_data.items.length > 0) {
+        const mappedItems = order.snapshot_data.items
+          .filter((item) => item.product_id)
+          .map((item) => ({
+            product_id: item.product_id,
+            quantity: Number(item.quantity) || 1
+          }));
+
+        if (mappedItems.length > 0) {
+          setDispatchItems(mappedItems);
+        }
+      }
+
+      // 4. Auto-fill serial numbers
+      if (reservedSerials.length > 0) {
+        const serialsList = reservedSerials.map((s) => s.serial_number);
+        setSerialsText(serialsList.join('\n'));
+        if (reservedSerials[0].warehouse_id) {
+          setDispatchWarehouseId(reservedSerials[0].warehouse_id);
+        }
+      }
+
+      // 5. Auto-fill delivery address / notes
+      const customer = order?.customers || order?.snapshot_data?.customer;
+      if (customer) {
+        setDeliveryNotes(`Deliver to ${customer.full_name || customer.name || 'Customer'}. Phone: ${customer.phone_e164 || customer.phone || 'N/A'}`);
+      }
+
+      const itemCount = order?.snapshot_data?.items?.length || 0;
+      const serialCount = reservedSerials.length;
+      setAutoFillMessage(`Auto-filled ${itemCount} components and ${serialCount} reserved serial numbers from ${order?.order_number || 'Order'}`);
+    } catch (err) {
+      console.warn('Auto-fill warning:', err);
+    } finally {
+      setAutoFillLoading(false);
+    }
+  };
 
   // Fetch Dispatches List
   const fetchDispatches = useCallback(async () => {
@@ -117,8 +183,18 @@ export function DispatchesListPage() {
     setDispatchItems([{ product_id: '', quantity: 1 }]);
     setSerialsText('');
     setFormError('');
+    setAutoFillMessage('');
     setShowCreateModal(true);
   };
+
+  useEffect(() => {
+    if (urlOrderId) {
+      loadReferenceData().then(() => {
+        setShowCreateModal(true);
+        handleSelectOrder(urlOrderId);
+      });
+    }
+  }, [urlOrderId]);
 
   // Formatted Options for SearchableSelect
   const orderOptions = useMemo(() => {
@@ -513,7 +589,7 @@ export function DispatchesListPage() {
                 label="Select Sales Order *"
                 options={orderOptions}
                 value={dispatchOrderId}
-                onChange={(val) => setDispatchOrderId(val)}
+                onChange={(val) => handleSelectOrder(val)}
                 placeholder="Choose confirmed solar order..."
                 searchPlaceholder="Search order number or customer..."
               />
@@ -531,6 +607,20 @@ export function DispatchesListPage() {
               />
             </div>
           </div>
+
+          {/* Auto-fill Indicator Alert */}
+          {autoFillLoading && (
+            <div className="p-2.5 bg-sky-50 border border-sky-200 rounded-lg text-xs text-sky-800 flex items-center gap-2">
+              <RefreshCw className="w-4 h-4 animate-spin text-sky-600" />
+              Auto-fetching order components and reserved serial numbers...
+            </div>
+          )}
+          {autoFillMessage && !autoFillLoading && (
+            <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span className="font-medium">{autoFillMessage}</span>
+            </div>
+          )}
 
           {/* Section 2: Logistics & Driver */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

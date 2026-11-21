@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { 
   ArrowLeft, Building2, MapPin, Phone, Mail, FileText, 
-  Plus, CheckCircle, Clock, Calendar, ShieldCheck, Tag
+  Plus, CheckCircle, Clock, Calendar, ShieldCheck, Tag,
+  ShoppingBag, Truck, Wrench, ExternalLink
 } from 'lucide-react';
 import { api } from '../../api/client';
 import { Badge } from '../../components/common/Badge';
@@ -13,6 +14,8 @@ export const CustomerDetailPage = () => {
   const { id } = useParams();
   const [customer, setCustomer] = useState(null);
   const [timeline, setTimeline] = useState(null);
+  const [customerOrders, setCustomerOrders] = useState([]);
+  const [customerQuotations, setCustomerQuotations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -33,12 +36,16 @@ export const CustomerDetailPage = () => {
     try {
       setLoading(true);
       setError(null);
-      const [custRes, timelineRes] = await Promise.all([
+      const [custRes, timelineRes, ordersRes, quotesRes] = await Promise.all([
         api.get(`/crm/customers/${id}`),
-        api.get(`/crm/customers/${id}/timeline`)
+        api.get(`/crm/customers/${id}/timeline`),
+        api.get('/orders', { customer_id: id, limit: 20 }),
+        api.get('/quotations', { customer_id: id, limit: 20 })
       ]);
       setCustomer(custRes.data);
       setTimeline(timelineRes.data);
+      setCustomerOrders(ordersRes?.data || []);
+      setCustomerQuotations(quotesRes?.data || []);
     } catch (err) {
       setError(err.message || 'Failed to load customer profile');
     } finally {
@@ -182,6 +189,60 @@ export const CustomerDetailPage = () => {
 
         {/* Right 2 Columns: 360-Degree Unified Timeline */}
         <div className="lg:col-span-2 space-y-6">
+          {/* Confirmed Solar Projects & Orders */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-midnight font-display flex items-center">
+                <ShoppingBag className="w-5 h-5 mr-2 text-solar-gold" /> Solar Projects & Sales Orders ({customerOrders.length})
+              </h2>
+            </div>
+
+            {customerOrders.length === 0 ? (
+              <p className="text-sm text-slate-400 italic">No confirmed sales orders for this customer yet.</p>
+            ) : (
+              <div className="space-y-3">
+                {customerOrders.map((ord) => (
+                  <div key={ord.id} className="p-4 border border-slate-200 rounded-lg hover:border-slate-300 transition-colors bg-slate-50/40">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <Link to={`/orders/${ord.id}`} className="font-mono font-bold text-midnight hover:text-sky-600 transition-colors">
+                          {ord.order_number}
+                        </Link>
+                        <Badge variant="primary">{ord.status}</Badge>
+                        <Badge variant={ord.payment_status === 'FULLY_PAID' ? 'success' : 'warning'}>
+                          {ord.payment_status}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Link to={`/orders/${ord.id}`}>
+                          <Button variant="ghost" size="sm">View Project</Button>
+                        </Link>
+                      </div>
+                    </div>
+                    <div className="text-xs text-slate-500 mt-2 flex items-center space-x-4">
+                      <span>Capacity: <strong className="text-slate-700 font-mono">{ord.system_capacity_kw} kW</strong></span>
+                      <span>Contract: <strong className="text-midnight font-mono font-bold">₹{Number(ord.net_customer_payable).toLocaleString('en-IN')}</strong></span>
+                      <span>Confirmed: {new Date(ord.confirmed_at).toLocaleDateString()}</span>
+                    </div>
+                    {/* Direct execution action shortcuts */}
+                    <div className="mt-3 pt-2.5 border-t border-slate-200 flex items-center gap-2">
+                      <Link to={`/dispatches?order_id=${ord.id}`}>
+                        <Button variant="outline" size="sm" icon={Truck}>
+                          Dispatch Hardware
+                        </Button>
+                      </Link>
+                      <Link to={`/installations?order_id=${ord.id}`}>
+                        <Button variant="outline" size="sm" icon={Wrench}>
+                          Schedule Installation
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Linked Leads */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
             <h2 className="text-lg font-bold text-midnight font-display mb-4 flex items-center">

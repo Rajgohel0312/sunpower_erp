@@ -83,6 +83,7 @@ export const listGoodsReceiptsSchema = z.object({
 export const listSerialsSchema = z.object({
   product_id: z.string().uuid().optional(),
   warehouse_id: z.string().uuid().optional(),
+  current_order_id: z.string().uuid().optional(),
   status: z.enum(['ALL', 'AVAILABLE', 'RESERVED', 'DISPATCHED', 'INSTALLED', 'RETURNED', 'UNDER_REPAIR', 'REPLACED']).default('ALL'),
   search: z.string().trim().max(100).optional(),
   page: z.coerce.number().int().min(1).default(1),

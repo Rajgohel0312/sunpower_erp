@@ -497,6 +497,7 @@ export async function listGoodsReceipts({
 export async function listSerialNumbers({
   product_id,
   warehouse_id,
+  current_order_id,
   status,
   search,
   page = 1,
@@ -508,6 +509,7 @@ export async function listSerialNumbers({
   const where = {};
   if (product_id) where.product_id = product_id;
   if (warehouse_id) where.warehouse_id = warehouse_id;
+  if (current_order_id) where.current_order_id = current_order_id;
   if (status && status !== 'ALL') where.status = status;
 
   if (search && search.trim()) {

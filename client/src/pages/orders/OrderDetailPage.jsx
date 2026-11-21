@@ -15,7 +15,10 @@ import {
   Wrench,
   AlertCircle,
   FileCheck2,
-  Receipt
+  Receipt,
+  ExternalLink,
+  Barcode,
+  PackageCheck
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import Button from '../../components/common/Button.jsx';
@@ -50,11 +53,30 @@ export function OrderDetailPage() {
   const [targetStatus, setTargetStatus] = useState('MATERIAL_RESERVED');
   const [statusNotes, setStatusNotes] = useState('');
 
+  // Linked Operations Modules
+  const [dispatches, setDispatches] = useState([]);
+  const [installations, setInstallations] = useState([]);
+  const [serials, setSerials] = useState([]);
+
   const fetchOrder = useCallback(async () => {
     setLoading(true);
     try {
       const res = await api.get(`/orders/${id}`);
       setOrder(res?.data || null);
+
+      // Concurrently fetch linked operations modules
+      try {
+        const [dispRes, instRes, serRes] = await Promise.all([
+          api.get('/dispatches', { sales_order_id: id }),
+          api.get('/installations', { sales_order_id: id }),
+          api.get('/inventory/serials', { current_order_id: id, limit: 50 })
+        ]);
+        setDispatches(dispRes?.data || []);
+        setInstallations(instRes?.data || []);
+        setSerials(serRes?.data || []);
+      } catch (opErr) {
+        console.warn('Failed to fetch linked operations data:', opErr);
+      }
     } catch (err) {
       setError(err.message || 'Failed to load order');
     } finally {
@@ -168,6 +190,18 @@ export function OrderDetailPage() {
 
         {/* Top Action Buttons */}
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Quick Module Connections */}
+          <Link to={`/dispatches?order_id=${order.id}`}>
+            <Button variant="outline" size="sm" icon={Truck}>
+              Prepare Dispatch
+            </Button>
+          </Link>
+          <Link to={`/installations?order_id=${order.id}`}>
+            <Button variant="outline" size="sm" icon={Wrench}>
+              Schedule Job
+            </Button>
+          </Link>
+
           {isFullyPaid ? (
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-semibold">
               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
@@ -315,6 +349,155 @@ export function OrderDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Connected Operations: Material Dispatches & Field Installations */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {/* 1. Material Dispatches */}
+        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold text-midnight uppercase tracking-wider flex items-center gap-1.5">
+              <Truck className="w-4 h-4 text-solar-gold" /> Material Dispatches ({dispatches.length})
+            </h3>
+            <Link to={`/dispatches?order_id=${order.id}`}>
+              <Button variant="outline" size="sm" icon={Truck}>
+                {dispatches.length > 0 ? '+ New Dispatch' : 'Prepare Dispatch'}
+              </Button>
+            </Link>
+          </div>
+
+          {dispatches.length === 0 ? (
+            <div className="p-4 rounded-lg bg-slate-50 border border-dashed border-slate-200 text-center">
+              <p className="text-xs text-slate-500">No material dispatches prepared yet for this order.</p>
+              <Link to={`/dispatches?order_id=${order.id}`} className="mt-2 inline-block">
+                <span className="text-xs font-semibold text-sky-600 hover:underline">Click here to auto-fill items and dispatch &rarr;</span>
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {dispatches.map((d) => (
+                <div key={d.id} className="p-3 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors bg-slate-50/50 flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-xs text-midnight">{d.dispatch_number}</span>
+                      <Badge variant={d.status === 'DELIVERED' ? 'success' : d.status === 'IN_TRANSIT' ? 'warning' : 'neutral'}>
+                        {d.status}
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      Driver: <strong className="text-slate-700">{d.driver_name}</strong> ({d.vehicle_number || 'Truck'}) • {d.dispatch_items?.length || 0} items
+                    </p>
+                  </div>
+                  <Link to="/dispatches" className="text-xs text-sky-600 hover:underline flex items-center gap-1 font-medium">
+                    View <ExternalLink className="w-3 h-3" />
+                  </Link>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 2. Field Installation Jobs */}
+        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold text-midnight uppercase tracking-wider flex items-center gap-1.5">
+              <Wrench className="w-4 h-4 text-solar-gold" /> Installation & Commissioning ({installations.length})
+            </h3>
+            <Link to={`/installations?order_id=${order.id}`}>
+              <Button variant="outline" size="sm" icon={Wrench}>
+                {installations.length > 0 ? '+ Schedule Job' : 'Schedule Installation'}
+              </Button>
+            </Link>
+          </div>
+
+          {installations.length === 0 ? (
+            <div className="p-4 rounded-lg bg-slate-50 border border-dashed border-slate-200 text-center">
+              <p className="text-xs text-slate-500">No field installation job scheduled yet.</p>
+              <Link to={`/installations?order_id=${order.id}`} className="mt-2 inline-block">
+                <span className="text-xs font-semibold text-sky-600 hover:underline">Click here to schedule crew & checklist &rarr;</span>
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {installations.map((job) => (
+                <div key={job.id} className="p-3 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors bg-slate-50/50 flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-xs text-midnight">{job.job_number}</span>
+                      <Badge variant={job.status === 'COMMISSIONED' ? 'success' : 'info'}>
+                        {job.status.replace(/_/g, ' ')}
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      Lead: <strong className="text-slate-700">{job.users_installation_jobs_team_lead_idTousers?.full_name || 'Assigned'}</strong>
+                      {job.installation_signoffs?.[0]?.certificate_number && (
+                        <span className="ml-2 font-mono text-emerald-700 font-semibold">
+                          • Cert: {job.installation_signoffs[0].certificate_number}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <Link to={`/installations/${job.id}`}>
+                    <Button variant="accent" size="sm" icon={Wrench}>
+                      Console
+                    </Button>
+                  </Link>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 3. Serialized Hardware Tracking Asset List */}
+      {serials.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
+            <h3 className="text-xs font-bold text-midnight uppercase tracking-wider flex items-center gap-1.5">
+              <Barcode className="w-4 h-4 text-solar-gold" />
+              Assigned Hardware Equipment & Serial Numbers ({serials.length})
+            </h3>
+            <span className="text-[11px] text-slate-500">
+              Tracked live in <Link to="/inventory/serials" className="text-sky-600 hover:underline font-medium">Serial Explorer</Link>
+            </span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-semibold">
+                <tr>
+                  <th className="py-2.5 px-4">#</th>
+                  <th className="py-2.5 px-4">Serial Number</th>
+                  <th className="py-2.5 px-4">Product / SKU</th>
+                  <th className="py-2.5 px-4">Depot / Warehouse</th>
+                  <th className="py-2.5 px-4">Status</th>
+                  <th className="py-2.5 px-4 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {serials.map((s, idx) => (
+                  <tr key={s.id} className="hover:bg-slate-50/50">
+                    <td className="py-2.5 px-4 font-mono text-slate-400">{idx + 1}</td>
+                    <td className="py-2.5 px-4 font-mono font-bold text-midnight">{s.serial_number}</td>
+                    <td className="py-2.5 px-4">
+                      <span className="font-semibold text-slate-800">{s.products?.brand} {s.products?.model_name || s.products?.sku}</span>
+                    </td>
+                    <td className="py-2.5 px-4 font-mono text-slate-600">{s.warehouses?.name || 'Depot'}</td>
+                    <td className="py-2.5 px-4">
+                      <Badge variant={s.status === 'INSTALLED' ? 'success' : s.status === 'DISPATCHED' ? 'warning' : 'info'}>
+                        {s.status}
+                      </Badge>
+                    </td>
+                    <td className="py-2.5 px-4 text-right">
+                      <Link to={`/inventory/serials?search=${s.serial_number}`} className="text-sky-600 hover:underline text-[11px] font-medium">
+                        Trace &rarr;
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Recorded Payment History Ledger */}
       {Array.isArray(order.snapshot_data?.recorded_payments) && order.snapshot_data.recorded_payments.length > 0 && (

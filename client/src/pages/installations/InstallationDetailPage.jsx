@@ -280,8 +280,24 @@ export function InstallationDetailPage() {
               {job.status.replace(/_/g, ' ')}
             </Badge>
           </div>
-          <p className="text-xs text-slate-500 mt-1">
-            Order: <strong className="text-slate-800 font-mono">{job.sales_orders?.order_number}</strong> • Customer: <strong className="text-slate-800">{job.sales_orders?.customers?.full_name}</strong> ({job.sales_orders?.system_capacity_kw} kW)
+          <p className="text-xs text-slate-500 mt-1 flex items-center gap-2 flex-wrap">
+            <span>
+              Order: <Link to={`/orders/${job.sales_order_id}`} className="text-sky-600 hover:underline font-mono font-bold">{job.sales_orders?.order_number}</Link>
+            </span>
+            <span>•</span>
+            <span>
+              Customer: <Link to={`/customers/${job.sales_orders?.customers?.id}`} className="text-slate-800 hover:underline font-medium">{job.sales_orders?.customers?.full_name}</Link>
+            </span>
+            <span>•</span>
+            <span>System: <strong className="font-mono text-midnight">{job.sales_orders?.system_capacity_kw} kW</strong></span>
+            {job.dispatches && (
+              <>
+                <span>•</span>
+                <span>
+                  Dispatch: <Link to="/dispatches" className="text-sky-600 hover:underline font-mono font-semibold">{job.dispatches.dispatch_number}</Link>
+                </span>
+              </>
+            )}
           </p>
         </div>
 

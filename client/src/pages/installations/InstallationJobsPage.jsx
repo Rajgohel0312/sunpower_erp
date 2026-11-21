@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   Wrench,
   Plus,
@@ -16,7 +16,8 @@ import {
   ArrowRight,
   ShieldCheck,
   MapPin,
-  ClipboardCheck
+  ClipboardCheck,
+  Sparkles
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { useDebounce } from '../../hooks/useDebounce.js';
@@ -70,6 +71,48 @@ export function InstallationJobsPage() {
   const [scheduledStart, setScheduledStart] = useState('');
   const [scheduledEnd, setScheduledEnd] = useState('');
 
+  // Auto-fetch & Auto-fill State
+  const [searchParams] = useSearchParams();
+  const urlOrderId = searchParams.get('order_id');
+  const [autoFillMessage, setAutoFillMessage] = useState('');
+
+  const handleSelectOrder = (orderId) => {
+    setSelectedOrderId(orderId);
+    if (!orderId) {
+      setAutoFillMessage('');
+      return;
+    }
+
+    // 1. Auto-connect with linked dispatch if already created
+    const matchedDispatch = dispatches.find(
+      (d) => d.sales_orders?.id === orderId || d.sales_order_id === orderId
+    );
+    if (matchedDispatch) {
+      setSelectedDispatchId(matchedDispatch.id);
+    }
+
+    // 2. Auto-initialize schedule window if empty (tomorrow 09:00 to 18:00)
+    if (!scheduledStart) {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const dateStr = tomorrow.toISOString().split('T')[0];
+      setScheduledStart(`${dateStr}T09:00`);
+      setScheduledEnd(`${dateStr}T18:00`);
+    }
+
+    // 3. Pre-select first field engineer/technician if available and empty
+    if (!teamLeadId && staffUsers.length > 0) {
+      setTeamLeadId(staffUsers[0].id);
+    }
+
+    const matchedOrder = orders.find((o) => o.id === orderId);
+    setAutoFillMessage(
+      matchedDispatch
+        ? `Connected with ${matchedOrder?.order_number || 'Order'} and linked Dispatch ${matchedDispatch.dispatch_number}`
+        : `Connected with ${matchedOrder?.order_number || 'Order'} • Initialized 9:00 AM installation schedule`
+    );
+  };
+
   const fetchJobs = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -117,8 +160,18 @@ export function InstallationJobsPage() {
     setScheduledStart('');
     setScheduledEnd('');
     setFormError('');
+    setAutoFillMessage('');
     setShowScheduleModal(true);
   };
+
+  useEffect(() => {
+    if (urlOrderId) {
+      loadReferenceData().then(() => {
+        setShowScheduleModal(true);
+        handleSelectOrder(urlOrderId);
+      });
+    }
+  }, [urlOrderId]);
 
   // Formatted Options for SearchableSelect
   const orderOptions = useMemo(() => {
@@ -456,11 +509,18 @@ export function InstallationJobsPage() {
               label="Select Confirmed Sales Order *"
               options={orderOptions}
               value={selectedOrderId}
-              onChange={(val) => setSelectedOrderId(val)}
+              onChange={(val) => handleSelectOrder(val)}
               placeholder="Search sales order..."
               searchPlaceholder="Filter orders by order number or customer..."
             />
           </div>
+
+          {autoFillMessage && (
+            <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg text-xs text-emerald-800 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span className="font-medium">{autoFillMessage}</span>
+            </div>
+          )}
 
           <div>
             <SearchableSelect
