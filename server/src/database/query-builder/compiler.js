@@ -79,10 +79,20 @@ function compileCondition(cond, ctx) {
     const col = formatColumn(cond.column);
     const op = validateOperator(cond.op);
 
-    // If comparing with null using '=' or '<>'
-    if (cond.value === null) {
-      if (op === '=') return `${col} IS NULL`;
-      if (op === '<>' || op === '!=') return `${col} IS NOT NULL`;
+    // Handle NULL checks with any equality or IS operator
+    if (cond.value === null || cond.value === undefined) {
+      if (op === '=' || op === 'IS') return `${col} IS NULL`;
+      if (op === '<>' || op === '!=' || op === 'IS NOT') return `${col} IS NOT NULL`;
+    }
+
+    // Handle boolean IS checks (PostgreSQL does not allow IS $placeholder)
+    if (op === 'IS') {
+      if (cond.value === true) return `${col} IS TRUE`;
+      if (cond.value === false) return `${col} IS FALSE`;
+    }
+    if (op === 'IS NOT') {
+      if (cond.value === true) return `${col} IS NOT TRUE`;
+      if (cond.value === false) return `${col} IS NOT FALSE`;
     }
 
     const placeholder = ctx.addValue(cond.value);

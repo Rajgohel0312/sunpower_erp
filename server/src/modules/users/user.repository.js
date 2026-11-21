@@ -14,7 +14,7 @@ export const userRepository = {
     let query = db
       .select('u.id', 'u.email', 'u.phone_e164', 'u.full_name', 'u.is_active', 'u.created_at')
       .from('users AS u')
-      .where('u.deleted_at', 'IS', null);
+      .whereNull('u.deleted_at');
 
     if (search) {
       query.andWhere(g => {
@@ -33,7 +33,7 @@ export const userRepository = {
     const countRes = await db
       .select('COUNT(*) AS total')
       .from('users AS u')
-      .where('u.deleted_at', 'IS', null)
+      .whereNull('u.deleted_at')
       .executeTakeFirst(client);
 
     const total = parseInt(countRes?.total || '0', 10);
@@ -57,7 +57,7 @@ export const userRepository = {
       .select('id', 'email', 'phone_e164', 'full_name', 'is_active', 'created_at')
       .from('users')
       .where('id', '=', id)
-      .andWhere('deleted_at', 'IS', null)
+      .whereNull('deleted_at')
       .executeTakeFirst(client);
 
     if (!user) return null;

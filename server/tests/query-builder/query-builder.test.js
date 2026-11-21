@@ -132,6 +132,26 @@ describe('Query Builder — SELECT Compilation', () => {
     assert.deepEqual(res2.values, []);
   });
 
+  test('compiles NULL checks safely without generating invalid IS $placeholder', () => {
+    // 1. Using whereNull
+    const qb1 = new QueryBuilder().select('id').from('users').whereNull('deleted_at');
+    const res1 = qb1.toSql();
+    assert.equal(res1.text, 'SELECT "id" FROM "users" WHERE "deleted_at" IS NULL;');
+    assert.deepEqual(res1.values, []);
+
+    // 2. Using where with IS null
+    const qb2 = new QueryBuilder().select('id').from('users').where('deleted_at', 'IS', null);
+    const res2 = qb2.toSql();
+    assert.equal(res2.text, 'SELECT "id" FROM "users" WHERE "deleted_at" IS NULL;');
+    assert.deepEqual(res2.values, []);
+
+    // 3. Using where with IS NOT null
+    const qb3 = new QueryBuilder().select('id').from('users').where('deleted_at', 'IS NOT', null);
+    const res3 = qb3.toSql();
+    assert.equal(res3.text, 'SELECT "id" FROM "users" WHERE "deleted_at" IS NOT NULL;');
+    assert.deepEqual(res3.values, []);
+  });
+
   test('compiles nested WHERE groups with parentheses', () => {
     const qb = new QueryBuilder()
       .select('id')

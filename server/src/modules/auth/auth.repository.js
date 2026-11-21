@@ -26,7 +26,7 @@ export const authRepository = {
       )
       .from('users')
       .where('email', '=', email)
-      .andWhere('deleted_at', 'IS', null)
+      .whereNull('deleted_at')
       .executeTakeFirst(client);
   },
 
@@ -41,7 +41,7 @@ export const authRepository = {
       .select('id', 'email', 'phone_e164', 'full_name', 'is_active')
       .from('users')
       .where('id', '=', id)
-      .andWhere('deleted_at', 'IS', null)
+      .whereNull('deleted_at')
       .executeTakeFirst(client);
   },
 
@@ -176,7 +176,7 @@ export const authRepository = {
       .from('users')
       .where('password_reset_token_hash', '=', tokenHash)
       .andWhere('password_reset_expires_at', '>', new Date())
-      .andWhere('deleted_at', 'IS', null)
+      .whereNull('deleted_at')
       .executeTakeFirst();
   },
 
