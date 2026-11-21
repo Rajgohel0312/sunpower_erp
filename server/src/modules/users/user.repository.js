@@ -9,7 +9,7 @@ export const userRepository = {
   /**
    * List users with pagination and search
    */
-  async listUsers({ page = 1, limit = 25, search }, tx = null) {
+  async listUsers({ page = 1, limit = 25, search, role }, tx = null) {
     const client = tx || prisma;
     const where = {
       deleted_at: null
@@ -18,8 +18,19 @@ export const userRepository = {
     if (search) {
       where.OR = [
         { full_name: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } }
+        { email: { contains: search, mode: 'insensitive' } },
+        { phone_e164: { contains: search, mode: 'insensitive' } }
       ];
+    }
+
+    if (role) {
+      where.user_roles = {
+        some: {
+          roles: {
+            code: role
+          }
+        }
+      };
     }
 
     const [rows, total] = await Promise.all([
@@ -31,7 +42,12 @@ export const userRepository = {
           phone_e164: true,
           full_name: true,
           is_active: true,
-          created_at: true
+          created_at: true,
+          user_roles: {
+            include: {
+              roles: true
+            }
+          }
         },
         orderBy: { created_at: 'desc' },
         skip: (page - 1) * limit,
@@ -40,8 +56,17 @@ export const userRepository = {
       client.users.count({ where })
     ]);
 
+    const users = rows.map((u) => {
+      const roles = u.user_roles ? u.user_roles.map((ur) => ur.roles.code) : [];
+      const { user_roles, ...rest } = u;
+      return {
+        ...rest,
+        roles
+      };
+    });
+
     return {
-      users: rows,
+      users,
       pagination: {
         page,
         limit,

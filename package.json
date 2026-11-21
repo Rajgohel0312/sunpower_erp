@@ -1,0 +1,12 @@
+{
+  "name": "sunpower-erp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SunPower ERP — End-to-End Solar Lifecycle Management Platform",
+  "scripts": {
+    "server": "npm --prefix server run dev",
+    "client": "npm --prefix client run dev",
+    "test": "npm --prefix server test",
+    "build": "npm --prefix client run build"
+  }
+}
