@@ -1,0 +1,317 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model audit_logs {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actor_id    String?  @db.Uuid
+  action      String   @db.VarChar(100)
+  entity_type String   @db.VarChar(100)
+  entity_id   String?  @db.Uuid
+  metadata    Json?
+  ip_address  String?  @db.VarChar(45)
+  user_agent  String?
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([actor_id], map: "idx_audit_logs_actor")
+  @@index([created_at(sort: Desc)], map: "idx_audit_logs_created_at")
+  @@index([entity_type, entity_id], map: "idx_audit_logs_entity")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model background_jobs {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  job_type      String    @db.VarChar(100)
+  payload       Json      @default("{}")
+  status        String    @default("QUEUED") @db.VarChar(50)
+  attempts      Int       @default(0)
+  max_attempts  Int       @default(5)
+  error_message String?
+  scheduled_at  DateTime  @default(now()) @db.Timestamptz(6)
+  processed_at  DateTime? @db.Timestamptz(6)
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model customer_addresses {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customer_id   String    @db.Uuid
+  address_type  String    @default("SITE") @db.VarChar(20)
+  address_line1 String    @db.VarChar(255)
+  address_line2 String?   @db.VarChar(255)
+  city          String    @db.VarChar(100)
+  state         String    @default("Gujarat") @db.VarChar(100)
+  pincode       String    @db.VarChar(10)
+  lat           Decimal?  @db.Decimal(10, 7)
+  lng           Decimal?  @db.Decimal(10, 7)
+  is_primary    Boolean   @default(true)
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime  @default(now()) @db.Timestamptz(6)
+  customers     customers @relation(fields: [customer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([customer_id], map: "idx_customer_addresses_cust")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model customer_documents {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customer_id String    @db.Uuid
+  doc_type    String    @db.VarChar(50)
+  file_name   String    @db.VarChar(255)
+  file_path   String    @db.VarChar(500)
+  mime_type   String?   @db.VarChar(100)
+  size_bytes  BigInt?
+  uploaded_by String?   @db.Uuid
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  customers   customers @relation(fields: [customer_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users       users?    @relation(fields: [uploaded_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([customer_id], map: "idx_customer_docs_cust")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model customers {
+  id                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customer_code      String               @unique @db.VarChar(32)
+  full_name          String               @db.VarChar(150)
+  phone_e164         String               @db.VarChar(20)
+  email              String?              @db.VarChar(255)
+  customer_type      String               @default("RESIDENTIAL") @db.VarChar(20)
+  gstin              String?              @db.VarChar(15)
+  created_by         String?              @db.Uuid
+  created_at         DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime             @default(now()) @db.Timestamptz(6)
+  deleted_at         DateTime?            @db.Timestamptz(6)
+  customer_addresses customer_addresses[]
+  customer_documents customer_documents[]
+  users              users?               @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  leads              leads[]
+
+  @@index([customer_code], map: "idx_customers_code")
+  @@index([created_at(sort: Desc)], map: "idx_customers_created_at")
+  @@index([phone_e164], map: "idx_customers_phone")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model file_records {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  original_name String    @db.VarChar(255)
+  storage_path  String
+  mime_type     String    @db.VarChar(100)
+  size_bytes    BigInt
+  category      String    @db.VarChar(50)
+  uploaded_by   String?   @db.Uuid
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+  deleted_at    DateTime? @db.Timestamptz(6)
+
+  @@index([category], map: "idx_file_records_category")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model follow_ups {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  lead_id       String    @db.Uuid
+  assigned_to   String?   @db.Uuid
+  scheduled_at  DateTime  @db.Timestamptz(6)
+  status        String    @default("PENDING") @db.VarChar(20)
+  reminder_sent Boolean   @default(false)
+  notes         String?
+  completed_at  DateTime? @db.Timestamptz(6)
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime  @default(now()) @db.Timestamptz(6)
+  users         users?    @relation(fields: [assigned_to], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  leads         leads     @relation(fields: [lead_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([lead_id], map: "idx_follow_ups_lead")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model idempotency_keys {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key             String   @unique @db.VarChar(255)
+  handler         String   @db.VarChar(100)
+  status          String   @db.VarChar(50)
+  response_body   Json?
+  response_status Int?
+  expires_at      DateTime @db.Timestamptz(6)
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([expires_at], map: "idx_idempotency_keys_expires_at")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model lead_activities {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  lead_id       String   @db.Uuid
+  actor_id      String?  @db.Uuid
+  activity_type String   @db.VarChar(32)
+  details       Json     @default("{}")
+  created_at    DateTime @default(now()) @db.Timestamptz(6)
+  users         users?   @relation(fields: [actor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  leads         leads    @relation(fields: [lead_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([lead_id, created_at(sort: Desc)], map: "idx_lead_activities_lead")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model leads {
+  id                             String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  lead_number                    String            @unique @db.VarChar(32)
+  source                         String            @default("MANUAL") @db.VarChar(32)
+  stage                          String            @default("NEW") @db.VarChar(32)
+  customer_id                    String?           @db.Uuid
+  assigned_to                    String?           @db.Uuid
+  full_name                      String            @db.VarChar(150)
+  phone_e164                     String            @db.VarChar(20)
+  email                          String?           @db.VarChar(255)
+  site_address                   String?
+  city                           String?           @db.VarChar(100)
+  state                          String?           @default("Gujarat") @db.VarChar(100)
+  pincode                        String?           @db.VarChar(10)
+  monthly_electricity_bill       Decimal?          @db.Decimal(12, 2)
+  requested_capacity_kw          Decimal?          @db.Decimal(6, 2)
+  system_type                    String?           @default("ON_GRID") @db.VarChar(20)
+  lost_reason                    String?
+  notes                          String?
+  converted_at                   DateTime?         @db.Timestamptz(6)
+  created_by                     String?           @db.Uuid
+  created_at                     DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at                     DateTime          @default(now()) @db.Timestamptz(6)
+  deleted_at                     DateTime?         @db.Timestamptz(6)
+  follow_ups                     follow_ups[]
+  lead_activities                lead_activities[]
+  users_leads_assigned_toTousers users?            @relation("leads_assigned_toTousers", fields: [assigned_to], references: [id], onUpdate: NoAction)
+  users_leads_created_byTousers  users?            @relation("leads_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  customers                      customers?        @relation(fields: [customer_id], references: [id], onUpdate: NoAction)
+
+  @@index([assigned_to], map: "idx_leads_assigned_to")
+  @@index([created_at(sort: Desc)], map: "idx_leads_created_at")
+  @@index([customer_id], map: "idx_leads_customer_id")
+  @@index([phone_e164], map: "idx_leads_phone")
+  @@index([stage], map: "idx_leads_stage")
+}
+
+model login_events {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email          String   @db.VarChar(255)
+  user_id        String?  @db.Uuid
+  success        Boolean
+  failure_reason String?  @db.VarChar(100)
+  ip_address     String?  @db.VarChar(45)
+  user_agent     String?
+  created_at     DateTime @default(now()) @db.Timestamptz(6)
+  users          users?   @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+
+  @@index([created_at(sort: Desc)], map: "idx_login_events_created_at")
+  @@index([email, created_at(sort: Desc)], map: "idx_login_events_email")
+}
+
+model notifications {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String   @db.Uuid
+  title      String   @db.VarChar(255)
+  message    String
+  is_read    Boolean  @default(false)
+  link_url   String?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model permissions {
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code             String             @unique @db.VarChar(100)
+  module           String             @db.VarChar(50)
+  description      String?
+  created_at       DateTime           @default(now()) @db.Timestamptz(6)
+  role_permissions role_permissions[]
+
+  @@index([module], map: "idx_permissions_module")
+}
+
+model refresh_tokens {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String   @db.Uuid
+  token_hash String   @unique @db.VarChar(64)
+  family_id  String   @db.Uuid
+  is_revoked Boolean  @default(false)
+  expires_at DateTime @db.Timestamptz(6)
+  user_agent String?
+  ip_address String?  @db.VarChar(45)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([family_id], map: "idx_refresh_tokens_family")
+  @@index([token_hash], map: "idx_refresh_tokens_hash")
+  @@index([user_id], map: "idx_refresh_tokens_user_id")
+}
+
+model role_permissions {
+  role_id       String      @db.Uuid
+  permission_id String      @db.Uuid
+  permissions   permissions @relation(fields: [permission_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  roles         roles       @relation(fields: [role_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([role_id, permission_id])
+}
+
+model roles {
+  id               String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code             String             @unique @db.VarChar(50)
+  name             String             @db.VarChar(100)
+  description      String?
+  is_system        Boolean            @default(false)
+  created_at       DateTime           @default(now()) @db.Timestamptz(6)
+  role_permissions role_permissions[]
+  user_roles       user_roles[]
+}
+
+model schema_migrations {
+  id         Int      @id @default(autoincrement())
+  version    String   @unique @db.VarChar(50)
+  name       String   @db.VarChar(255)
+  checksum   String   @db.VarChar(64)
+  applied_at DateTime @default(now()) @db.Timestamptz(6)
+}
+
+model user_roles {
+  user_id     String   @db.Uuid
+  role_id     String   @db.Uuid
+  assigned_at DateTime @default(now()) @db.Timestamptz(6)
+  assigned_by String?  @db.Uuid
+  roles       roles    @relation(fields: [role_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users       users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([user_id, role_id])
+}
+
+model users {
+  id                             String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                          String               @unique @db.VarChar(255)
+  phone_e164                     String               @unique @db.VarChar(20)
+  password_hash                  String               @db.VarChar(255)
+  full_name                      String               @db.VarChar(150)
+  is_active                      Boolean              @default(true)
+  failed_login_attempts          Int                  @default(0)
+  locked_until                   DateTime?            @db.Timestamptz(6)
+  password_reset_token_hash      String?              @db.VarChar(64)
+  password_reset_expires_at      DateTime?            @db.Timestamptz(6)
+  created_at                     DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at                     DateTime             @default(now()) @db.Timestamptz(6)
+  deleted_at                     DateTime?            @db.Timestamptz(6)
+  customer_documents             customer_documents[]
+  customers                      customers[]
+  follow_ups                     follow_ups[]
+  lead_activities                lead_activities[]
+  leads_leads_assigned_toTousers leads[]              @relation("leads_assigned_toTousers")
+  leads_leads_created_byTousers  leads[]              @relation("leads_created_byTousers")
+  login_events                   login_events[]
+  refresh_tokens                 refresh_tokens[]
+  user_roles                     user_roles[]
+
+  @@index([email], map: "idx_users_email")
+  @@index([phone_e164], map: "idx_users_phone")
+}

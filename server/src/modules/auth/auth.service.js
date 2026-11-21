@@ -9,7 +9,7 @@ import { comparePassword, hashPassword, hashToken, generateSecureToken } from '.
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../../utils/jwt.js';
 import { tokenStore } from '../../utils/token-store.js';
 import { AppError } from '../../utils/response.js';
-import { withTransaction } from '../../database/pool.js';
+import { withTransaction } from '../../database/index.js';
 
 export const authService = {
   /**

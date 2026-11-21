@@ -1,10 +1,10 @@
 # SunPower ERP: always-on rules
 
-Stack: React + Vite + JavaScript + Tailwind (client), Node + Express + JavaScript ES modules (server), PostgreSQL via `pg` and our custom query builder. NO ORM, NO Prisma, NO TypeScript, NO Docker for now.
+Stack: React + Vite + JavaScript + Tailwind (client), Node + Express + JavaScript ES modules (server), PostgreSQL via Prisma ORM (`@prisma/client`). NO TypeScript, NO Docker for now.
 
 1. Read the PRD (docs/SunPower_ERP_Full_PRD_LLD.docx) section for the module before coding; confirm table columns and API schemas first.
-2. Build one vertical slice at a time, in PRD roadmap order. Query builder + migrations first.
-3. Layering: route -> controller -> service -> repository -> query builder. Business rules only in services.
+2. Build one vertical slice at a time, in PRD roadmap order. Prisma schema + migrations first.
+3. Layering: route -> controller -> service -> repository -> Prisma client. Business rules only in services.
 4. Web and WhatsApp call the same domain services. WhatsApp text is never authorization.
 5. Backend enforces permissions (deny by default) plus ownership checks. Frontend guards are cosmetic.
 6. Parameterized SQL only; identifiers/operators from allowlists; no raw SQL from input.
@@ -15,6 +15,7 @@ Stack: React + Vite + JavaScript + Tailwind (client), Node + Express + JavaScrip
 11. Every feature ships with success and failure tests. Do not mark done without them.
 12. Never commit .env, storage/, or WhatsApp session files.
 13. If a requirement is ambiguous or marked as an open decision in the PRD (tax, subsidy, valuation, warranty start), ask instead of guessing.
+14. Git commits: Always ask for explicit user approval before executing any git commit.
 
 ---
 

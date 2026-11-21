@@ -4,7 +4,7 @@
  */
 
 import { AppError, sendError } from '../utils/response.js';
-import { DatabaseError } from '../database/pool.js';
+import { DatabaseError } from '../database/index.js';
 
 export function errorHandler(err, req, res, next) {
   // If response has already started streaming, delegate to default Express handler

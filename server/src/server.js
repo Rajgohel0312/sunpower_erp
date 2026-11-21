@@ -4,7 +4,7 @@
 
 import { app } from './app.js';
 import { config } from './config/index.js';
-import { closePool } from './database/pool.js';
+import { closeDatabase } from './database/index.js';
 
 const server = app.listen(config.PORT, () => {
   console.log(`[SunPower ERP Server]: Running in ${config.NODE_ENV} mode on http://localhost:${config.PORT}`);
@@ -15,7 +15,7 @@ function handleShutdown(signal) {
   console.log(`[SunPower ERP Server]: Received ${signal}, closing server and connection pools...`);
   server.close(async () => {
     try {
-      await closePool();
+      await closeDatabase();
       console.log('[SunPower ERP Server]: Database connections closed. Process terminating gracefully.');
       process.exit(0);
     } catch (err) {

@@ -7,7 +7,7 @@ import { crmRepository } from './crm.repository.js';
 import { userRepository } from '../users/user.repository.js';
 import { normalizePhone } from './crm.schemas.js';
 import { AppError } from '../../utils/response.js';
-import { withTransaction } from '../../database/pool.js';
+import { withTransaction } from '../../database/index.js';
 
 // Allowed State Machine Transitions
 const ALLOWED_STAGE_TRANSITIONS = {

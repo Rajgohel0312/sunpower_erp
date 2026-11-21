@@ -1,42 +1,44 @@
 /**
  * User & Role Management Database Repository
+ * Powered by Prisma ORM (@prisma/client)
  */
 
-import { db } from '../../database/index.js';
+import { prisma } from '../../database/index.js';
 
 export const userRepository = {
   /**
-   * List users with pagination and role mapping
+   * List users with pagination and search
    */
-  async listUsers({ page = 1, limit = 25, search, role }, client = null) {
-    const offset = (page - 1) * limit;
-
-    let query = db
-      .select('u.id', 'u.email', 'u.phone_e164', 'u.full_name', 'u.is_active', 'u.created_at')
-      .from('users AS u')
-      .whereNull('u.deleted_at');
+  async listUsers({ page = 1, limit = 25, search }, tx = null) {
+    const client = tx || prisma;
+    const where = {
+      deleted_at: null
+    };
 
     if (search) {
-      query.andWhere(g => {
-        g.where('u.full_name', 'ILIKE', `%${search}%`)
-         .orWhere('u.email', 'ILIKE', `%${search}%`);
-      });
+      where.OR = [
+        { full_name: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } }
+      ];
     }
 
-    const rows = await query
-      .orderBy('u.created_at', 'DESC')
-      .limit(limit)
-      .offset(offset)
-      .execute(client);
-
-    // Get count for pagination metadata
-    const countRes = await db
-      .select('COUNT(*) AS total')
-      .from('users AS u')
-      .whereNull('u.deleted_at')
-      .executeTakeFirst(client);
-
-    const total = parseInt(countRes?.total || '0', 10);
+    const [rows, total] = await Promise.all([
+      client.users.findMany({
+        where,
+        select: {
+          id: true,
+          email: true,
+          phone_e164: true,
+          full_name: true,
+          is_active: true,
+          created_at: true
+        },
+        orderBy: { created_at: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit
+      }),
+      client.users.count({ where })
+    ]);
 
     return {
       users: rows,
@@ -50,99 +52,103 @@ export const userRepository = {
   },
 
   /**
-   * Find user by ID with roles and permissions
+   * Find user by ID with roles
    */
-  async findById(id, client = null) {
-    const user = await db
-      .select('id', 'email', 'phone_e164', 'full_name', 'is_active', 'created_at')
-      .from('users')
-      .where('id', '=', id)
-      .whereNull('deleted_at')
-      .executeTakeFirst(client);
+  async findById(id, tx = null) {
+    const client = tx || prisma;
+    const user = await client.users.findFirst({
+      where: {
+        id,
+        deleted_at: null
+      },
+      select: {
+        id: true,
+        email: true,
+        phone_e164: true,
+        full_name: true,
+        is_active: true,
+        created_at: true,
+        user_roles: {
+          include: {
+            roles: true
+          }
+        }
+      }
+    });
 
     if (!user) return null;
 
-    const roleRows = await db
-      .select('r.code', 'r.name')
-      .from('user_roles AS ur')
-      .join('roles AS r', 'r.id', '=', 'ur.role_id')
-      .where('ur.user_id', '=', id)
-      .execute(client);
+    const roles = user.user_roles.map(ur => ({
+      code: ur.roles.code,
+      name: ur.roles.name
+    }));
 
-    user.roles = roleRows;
-    return user;
+    const { user_roles, ...userWithoutJunction } = user;
+    return {
+      ...userWithoutJunction,
+      roles
+    };
   },
 
   /**
    * Creates a user and assigns roles in a transaction
    */
-  async createUser(userData, roleCodes, client = null) {
-    // 1. Insert user
-    const newUser = await db
-      .insertInto('users', {
+  async createUser(userData, roleCodes, tx = null) {
+    const client = tx || prisma;
+
+    const roles = roleCodes && roleCodes.length > 0
+      ? await client.roles.findMany({ where: { code: { in: roleCodes } } })
+      : [];
+
+    const newUser = await client.users.create({
+      data: {
         email: userData.email,
         phone_e164: userData.phone_e164,
         password_hash: userData.password_hash,
         full_name: userData.full_name,
-        is_active: userData.is_active ?? true
-      })
-      .returning('id', 'email', 'phone_e164', 'full_name', 'is_active', 'created_at')
-      .executeTakeFirst(client);
-
-    // 2. Fetch role IDs for the requested codes
-    if (roleCodes && roleCodes.length > 0) {
-      const roles = await db
-        .select('id', 'code')
-        .from('roles')
-        .whereIn('code', roleCodes)
-        .execute(client);
-
-      const userRoleRows = roles.map(r => ({
-        user_id: newUser.id,
-        role_id: r.id
-      }));
-
-      if (userRoleRows.length > 0) {
-        await db.insertInto('user_roles', userRoleRows).execute(client);
+        is_active: userData.is_active ?? true,
+        user_roles: {
+          create: roles.map(r => ({ role_id: r.id }))
+        }
+      },
+      select: {
+        id: true,
+        email: true,
+        phone_e164: true,
+        full_name: true,
+        is_active: true,
+        created_at: true
       }
-      newUser.roles = roles.map(r => r.code);
-    }
+    });
 
+    newUser.roles = roles.map(r => r.code);
     return newUser;
   },
 
   /**
    * Updates user and reassigns roles
    */
-  async updateUser(id, updateData, roleCodes, client = null) {
-    if (Object.keys(updateData).length > 0) {
-      await db
-        .update('users', {
-          ...updateData,
-          updated_at: new Date()
-        })
-        .where('id', '=', id)
-        .execute(client);
-    }
+  async updateUser(id, updateData, roleCodes, tx = null) {
+    const client = tx || prisma;
 
     if (roleCodes) {
-      // Clear existing roles
-      await db.deleteFrom('user_roles').where('user_id', '=', id).execute(client);
-
-      const roles = await db
-        .select('id', 'code')
-        .from('roles')
-        .whereIn('code', roleCodes)
-        .execute(client);
-
-      const userRoleRows = roles.map(r => ({
-        user_id: id,
-        role_id: r.id
-      }));
-
-      if (userRoleRows.length > 0) {
-        await db.insertInto('user_roles', userRoleRows).execute(client);
+      await client.user_roles.deleteMany({ where: { user_id: id } });
+      const roles = await client.roles.findMany({ where: { code: { in: roleCodes } } });
+      if (roles.length > 0) {
+        await client.user_roles.createMany({
+          data: roles.map(r => ({ user_id: id, role_id: r.id }))
+        });
       }
+    }
+
+    if (updateData && Object.keys(updateData).length > 0) {
+      await client.users.update({
+        where: { id },
+        data: {
+          ...updateData,
+          updated_at: new Date()
+        }
+      });
     }
 
     return this.findById(id, client);

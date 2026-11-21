@@ -5,7 +5,7 @@
 import { userRepository } from './user.repository.js';
 import { hashPassword } from '../../utils/crypto.js';
 import { AppError } from '../../utils/response.js';
-import { withTransaction } from '../../database/pool.js';
+import { withTransaction } from '../../database/index.js';
 
 export const userService = {
   /**
