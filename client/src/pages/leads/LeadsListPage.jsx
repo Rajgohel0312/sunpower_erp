@@ -20,6 +20,7 @@ import { useDebounce } from '../../hooks/useDebounce.js';
 import Button from '../../components/common/Button.jsx';
 import Badge from '../../components/common/Badge.jsx';
 import Modal from '../../components/common/Modal.jsx';
+import Pagination from '../../components/common/Pagination.jsx';
 
 const STAGES = [
   'ALL',
@@ -392,89 +393,20 @@ export function LeadsListPage() {
           </table>
         </div>
 
-        {/* Robust Pagination Controls Bar */}
-        <div className="px-4 py-3 border-t border-slate-200 bg-slate-50/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
-          <div className="flex items-center gap-3">
-            <span>
-              Showing{' '}
-              <strong className="text-slate-900 font-semibold font-mono">
-                {pagination.total === 0 ? 0 : (page - 1) * limit + 1}
-              </strong>{' '}
-              to{' '}
-              <strong className="text-slate-900 font-semibold font-mono">
-                {Math.min(page * limit, pagination.total)}
-              </strong>{' '}
-              of{' '}
-              <strong className="text-slate-900 font-semibold font-mono">{pagination.total}</strong> leads
-            </span>
-
-            <div className="flex items-center gap-1.5 ml-2 border-l border-slate-200 pl-3">
-              <span className="text-slate-500">Show:</span>
-              <select
-                value={limit}
-                onChange={(e) => {
-                  setLimit(Number(e.target.value));
-                  setPage(1);
-                }}
-                className="px-2 py-0.5 border border-slate-300 rounded bg-white text-xs font-mono font-medium focus:outline-none focus:ring-1 focus:ring-midnight"
-              >
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page <= 1}
-              onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-              className="px-2.5 py-1 text-xs"
-            >
-              <ChevronLeft className="w-3.5 h-3.5 mr-1" />
-              Previous
-            </Button>
-
-            <div className="flex items-center gap-1 px-1">
-              {Array.from({ length: Math.min(5, pagination.totalPages || 1) }, (_, i) => {
-                let pageNum = i + 1;
-                if (pagination.totalPages > 5) {
-                  if (page > 3 && page < pagination.totalPages - 1) {
-                    pageNum = page - 2 + i;
-                  } else if (page >= pagination.totalPages - 1) {
-                    pageNum = pagination.totalPages - 4 + i;
-                  }
-                }
-                return (
-                  <button
-                    key={pageNum}
-                    onClick={() => setPage(pageNum)}
-                    className={`w-7 h-7 rounded-md font-mono text-xs font-medium transition-colors ${
-                      page === pageNum
-                        ? 'bg-midnight text-white font-bold'
-                        : 'text-slate-700 bg-white border border-slate-200 hover:bg-slate-100'
-                    }`}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              })}
-            </div>
-
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page >= (pagination.totalPages || 1)}
-              onClick={() => setPage((prev) => Math.min(pagination.totalPages || 1, prev + 1))}
-              className="px-2.5 py-1 text-xs"
-            >
-              Next
-              <ChevronRight className="w-3.5 h-3.5 ml-1" />
-            </Button>
-          </div>
-        </div>
+        {/* Standardized Pagination Controls Bar */}
+        <Pagination
+          page={page}
+          limit={limit}
+          total={pagination.total}
+          totalPages={pagination.totalPages}
+          onPageChange={setPage}
+          onLimitChange={(newLimit) => {
+            setLimit(newLimit);
+            setPage(1);
+          }}
+          entityLabel="leads"
+          pageSizes={[10, 20, 50, 100]}
+        />
       </div>
 
       {/* Create Lead Modal */}

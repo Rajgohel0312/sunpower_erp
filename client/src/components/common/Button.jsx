@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { Loader2 } from 'lucide-react';
 
 export function Button({
@@ -11,8 +11,28 @@ export function Button({
   icon: Icon,
   className = '',
   onClick,
+  throttleMs = 400,
   ...props
 }) {
+  const lastClickRef = useRef(0);
+
+  const handleClick = (e) => {
+    if (disabled || loading) {
+      e.preventDefault();
+      return;
+    }
+
+    if (onClick) {
+      const now = Date.now();
+      if (throttleMs > 0 && now - lastClickRef.current < throttleMs) {
+        e.preventDefault();
+        return;
+      }
+      lastClickRef.current = now;
+      onClick(e);
+    }
+  };
+
   const baseStyles = 'inline-flex items-center justify-center font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed select-none';
 
   const variants = {
@@ -34,7 +54,7 @@ export function Button({
     <button
       type={type}
       disabled={disabled || loading}
-      onClick={onClick}
+      onClick={handleClick}
       className={`${baseStyles} ${variants[variant] || variants.primary} ${sizes[size] || sizes.md} ${className}`}
       {...props}
     >

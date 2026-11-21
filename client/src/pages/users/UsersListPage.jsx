@@ -8,6 +8,7 @@ import { useDebounce } from '../../hooks/useDebounce';
 import { Badge } from '../../components/common/Badge';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
+import Pagination from '../../components/common/Pagination.jsx';
 
 const AVAILABLE_ROLES = [
   { code: 'SUPER_ADMIN', label: 'Super Admin', desc: 'Full system control' },
@@ -27,6 +28,14 @@ export const UsersListPage = () => {
   const [searchInput, setSearchInput] = useState('');
   const debouncedSearch = useDebounce(searchInput, 300);
   const [roleFilter, setRoleFilter] = useState('');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 });
+
+  // Reset page to 1 whenever search or role changes
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, roleFilter]);
 
   // Create User Modal state
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -44,18 +53,28 @@ export const UsersListPage = () => {
     try {
       setLoading(true);
       setError(null);
-      const params = {};
+      const params = { page, limit };
       if (debouncedSearch && debouncedSearch.trim()) params.search = debouncedSearch.trim();
       if (roleFilter) params.role = roleFilter;
 
       const res = await api.get('/users', { params });
       setUsers(res.data || []);
+      if (res.meta?.pagination) {
+        setPagination(res.meta.pagination);
+      } else {
+        setPagination({
+          page,
+          limit,
+          total: res.data?.length || 0,
+          totalPages: Math.ceil((res.data?.length || 0) / limit) || 1
+        });
+      }
     } catch (err) {
       setError(err.message || 'Failed to fetch users');
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, roleFilter]);
+  }, [page, limit, debouncedSearch, roleFilter]);
 
   useEffect(() => {
     fetchUsers();
@@ -267,6 +286,21 @@ export const UsersListPage = () => {
             </table>
           </div>
         )}
+
+        {/* Users Pagination */}
+        <Pagination
+          page={page}
+          limit={limit}
+          total={pagination.total}
+          totalPages={pagination.totalPages}
+          onPageChange={setPage}
+          onLimitChange={(newLimit) => {
+            setLimit(newLimit);
+            setPage(1);
+          }}
+          entityLabel="users"
+          pageSizes={[10, 20, 50, 100]}
+        />
       </div>
 
       {/* Create User Modal */}

@@ -53,6 +53,9 @@ export const catalogRepository = {
   // ---------------------------------------------------------------------------
   async listProducts({ page = 1, limit = 50, category_code, category_id, search, is_active, sort_by = 'created_at', sort_order = 'DESC' }, tx = null) {
     const client = tx || prisma;
+    const parsedPage = Math.max(1, parseInt(page, 10) || 1);
+    const parsedLimit = Math.max(1, Math.min(100, parseInt(limit, 10) || 50));
+
     const where = {
       deleted_at: null
     };
@@ -96,8 +99,8 @@ export const catalogRepository = {
           }
         },
         orderBy,
-        skip: (page - 1) * limit,
-        take: limit
+        skip: (parsedPage - 1) * parsedLimit,
+        take: parsedLimit
       }),
       client.products.count({ where })
     ]);
@@ -113,10 +116,10 @@ export const catalogRepository = {
     return {
       products,
       pagination: {
-        page,
-        limit,
+        page: parsedPage,
+        limit: parsedLimit,
         total,
-        totalPages: Math.ceil(total / limit)
+        totalPages: Math.ceil(total / parsedLimit) || 1
       }
     };
   },

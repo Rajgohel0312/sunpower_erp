@@ -8,6 +8,7 @@ import { useDebounce } from '../../hooks/useDebounce.js';
 import Button from '../../components/common/Button.jsx';
 import Badge from '../../components/common/Badge.jsx';
 import Modal from '../../components/common/Modal.jsx';
+import Pagination from '../../components/common/Pagination.jsx';
 
 export function CatalogPage() {
   const [products, setProducts] = useState([]);
@@ -16,9 +17,17 @@ export function CatalogPage() {
   const [searchInput, setSearchInput] = useState('');
   const debouncedSearch = useDebounce(searchInput, 300);
   const [selectedCategory, setSelectedCategory] = useState('ALL');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 });
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
+
+  // Reset page to 1 whenever search or category changes
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, selectedCategory]);
 
   const [formData, setFormData] = useState({
     category_id: '',
@@ -36,7 +45,7 @@ export function CatalogPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const query = { limit: 100 };
+      const query = { page, limit };
       if (selectedCategory !== 'ALL') query.category_code = selectedCategory;
       if (debouncedSearch && debouncedSearch.trim()) query.search = debouncedSearch.trim();
 
@@ -46,13 +55,23 @@ export function CatalogPage() {
       ]);
 
       setProducts(prodsRes?.data || []);
+      if (prodsRes?.meta?.pagination) {
+        setPagination(prodsRes.meta.pagination);
+      } else {
+        setPagination({
+          page,
+          limit,
+          total: prodsRes?.data?.length || 0,
+          totalPages: Math.ceil((prodsRes?.data?.length || 0) / limit) || 1
+        });
+      }
       setCategories(catsRes?.data || []);
     } catch (err) {
       console.error('Failed to load catalog:', err);
     } finally {
       setLoading(false);
     }
-  }, [selectedCategory, debouncedSearch]);
+  }, [page, limit, selectedCategory, debouncedSearch]);
 
   useEffect(() => {
     fetchData();
@@ -85,7 +104,7 @@ export function CatalogPage() {
         hsn_code: '85414011',
         is_serial_tracked: false
       });
-      fetchData(selectedCategory, search);
+      fetchData();
     } catch (err) {
       setFormError(err.message || 'Failed to create product.');
     } finally {
@@ -228,6 +247,21 @@ export function CatalogPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Catalog Pagination */}
+        <Pagination
+          page={page}
+          limit={limit}
+          total={pagination.total}
+          totalPages={pagination.totalPages}
+          onPageChange={setPage}
+          onLimitChange={(newLimit) => {
+            setLimit(newLimit);
+            setPage(1);
+          }}
+          entityLabel="components"
+          pageSizes={[10, 20, 50, 100]}
+        />
       </div>
 
       {/* Create Product Modal */}

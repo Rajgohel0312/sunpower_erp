@@ -11,6 +11,9 @@ export const userRepository = {
    */
   async listUsers({ page = 1, limit = 25, search, role }, tx = null) {
     const client = tx || prisma;
+    const parsedPage = Math.max(1, parseInt(page, 10) || 1);
+    const parsedLimit = Math.max(1, Math.min(100, parseInt(limit, 10) || 25));
+
     const where = {
       deleted_at: null
     };
@@ -50,8 +53,8 @@ export const userRepository = {
           }
         },
         orderBy: { created_at: 'desc' },
-        skip: (page - 1) * limit,
-        take: limit
+        skip: (parsedPage - 1) * parsedLimit,
+        take: parsedLimit
       }),
       client.users.count({ where })
     ]);
@@ -68,10 +71,10 @@ export const userRepository = {
     return {
       users,
       pagination: {
-        page,
-        limit,
+        page: parsedPage,
+        limit: parsedLimit,
         total,
-        totalPages: Math.ceil(total / limit)
+        totalPages: Math.ceil(total / parsedLimit) || 1
       }
     };
   },

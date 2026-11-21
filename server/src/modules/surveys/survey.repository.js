@@ -111,6 +111,9 @@ export const surveyRepository = {
    */
   async listSurveys({ page = 1, limit = 20, status, assigned_engineer_id, lead_id, customer_id, search }, tx = null) {
     const client = tx || prisma;
+    const parsedPage = Math.max(1, parseInt(page, 10) || 1);
+    const parsedLimit = Math.max(1, Math.min(100, parseInt(limit, 10) || 20));
+
     const where = {
       deleted_at: null
     };
@@ -148,8 +151,8 @@ export const surveyRepository = {
           }
         },
         orderBy: { scheduled_at: 'desc' },
-        skip: (page - 1) * limit,
-        take: limit
+        skip: (parsedPage - 1) * parsedLimit,
+        take: parsedLimit
       }),
       client.surveys.count({ where })
     ]);
@@ -171,10 +174,10 @@ export const surveyRepository = {
     return {
       surveys,
       pagination: {
-        page,
-        limit,
+        page: parsedPage,
+        limit: parsedLimit,
         total,
-        totalPages: Math.ceil(total / limit)
+        totalPages: Math.ceil(total / parsedLimit) || 1
       }
     };
   },

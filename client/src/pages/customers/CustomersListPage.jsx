@@ -6,6 +6,7 @@ import { useDebounce } from '../../hooks/useDebounce.js';
 import Button from '../../components/common/Button.jsx';
 import Badge from '../../components/common/Badge.jsx';
 import Modal from '../../components/common/Modal.jsx';
+import Pagination from '../../components/common/Pagination.jsx';
 
 export function CustomersListPage() {
   const [customers, setCustomers] = useState([]);
@@ -14,6 +15,11 @@ export function CustomersListPage() {
   const debouncedSearch = useDebounce(searchInput, 300);
   const [typeFilter, setTypeFilter] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
+
+  // Pagination State
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 });
 
   const [formData, setFormData] = useState({
     full_name: '',
@@ -34,17 +40,25 @@ export function CustomersListPage() {
   const fetchCustomers = useCallback(async () => {
     setLoading(true);
     try {
-      const query = { limit: 50 };
+      const query = { page, limit };
       if (debouncedSearch && debouncedSearch.trim()) query.search = debouncedSearch.trim();
       if (typeFilter) query.customer_type = typeFilter;
 
       const res = await api.get('/crm/customers', query);
       setCustomers(res?.data || []);
+      if (res?.meta?.pagination) {
+        setPagination(res.meta.pagination);
+      }
     } catch (err) {
       console.error('Failed to load customers:', err);
     } finally {
       setLoading(false);
     }
+  }, [page, limit, debouncedSearch, typeFilter]);
+
+  // Reset to page 1 on filter or search change
+  useEffect(() => {
+    setPage(1);
   }, [debouncedSearch, typeFilter]);
 
   useEffect(() => {
@@ -199,6 +213,20 @@ export function CustomersListPage() {
             </tbody>
           </table>
         </div>
+
+        {/* Customers Pagination Controls */}
+        <Pagination
+          page={page}
+          limit={limit}
+          total={pagination.total}
+          totalPages={pagination.totalPages}
+          onPageChange={setPage}
+          onLimitChange={(newLimit) => {
+            setLimit(newLimit);
+            setPage(1);
+          }}
+          entityLabel="customers"
+        />
       </div>
 
       {/* Create Customer Modal */}

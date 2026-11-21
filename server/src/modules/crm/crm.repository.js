@@ -116,6 +116,9 @@ export const crmRepository = {
 
   async listLeads({ page = 1, limit = 20, stage, source, assigned_to, search, sort_by = 'created_at', sort_order = 'DESC' }, tx = null) {
     const client = tx || prisma;
+    const parsedPage = Math.max(1, parseInt(page, 10) || 1);
+    const parsedLimit = Math.max(1, Math.min(100, parseInt(limit, 10) || 20));
+
     const where = {
       deleted_at: null
     };
@@ -160,8 +163,8 @@ export const crmRepository = {
           }
         },
         orderBy,
-        skip: (page - 1) * limit,
-        take: limit
+        skip: (parsedPage - 1) * parsedLimit,
+        take: parsedLimit
       }),
       client.leads.count({ where })
     ]);
@@ -177,10 +180,10 @@ export const crmRepository = {
     return {
       leads: mappedRows,
       pagination: {
-        page,
-        limit,
+        page: parsedPage,
+        limit: parsedLimit,
         total,
-        totalPages: Math.ceil(total / limit)
+        totalPages: Math.ceil(total / parsedLimit) || 1
       }
     };
   },
@@ -348,6 +351,9 @@ export const crmRepository = {
 
   async listCustomers({ page = 1, limit = 20, customer_type, search, sort_by = 'created_at', sort_order = 'DESC' }, tx = null) {
     const client = tx || prisma;
+    const parsedPage = Math.max(1, parseInt(page, 10) || 1);
+    const parsedLimit = Math.max(1, Math.min(100, parseInt(limit, 10) || 20));
+
     const where = {
       deleted_at: null
     };
@@ -379,8 +385,8 @@ export const crmRepository = {
           created_at: true
         },
         orderBy,
-        skip: (page - 1) * limit,
-        take: limit
+        skip: (parsedPage - 1) * parsedLimit,
+        take: parsedLimit
       }),
       client.customers.count({ where })
     ]);
@@ -388,10 +394,10 @@ export const crmRepository = {
     return {
       customers: rows,
       pagination: {
-        page,
-        limit,
+        page: parsedPage,
+        limit: parsedLimit,
         total,
-        totalPages: Math.ceil(total / limit)
+        totalPages: Math.ceil(total / parsedLimit) || 1
       }
     };
   },
