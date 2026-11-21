@@ -5,6 +5,7 @@
 
 import { verifyAccessToken } from '../utils/jwt.js';
 import { AppError } from '../utils/response.js';
+import { tokenStore } from '../utils/token-store.js';
 
 export function authenticate(req, res, next) {
   let token = null;
@@ -24,8 +25,14 @@ export function authenticate(req, res, next) {
     return next(new AppError('Authentication required. Missing token.', 401, 'UNAUTHENTICATED'));
   }
 
+  // 3. Check token revocation denylist (e.g. after logout)
+  if (tokenStore.isRevoked(token)) {
+    return next(new AppError('This session has been logged out. Please log in again.', 401, 'TOKEN_REVOKED'));
+  }
+
   try {
     const decoded = verifyAccessToken(token);
+    req.token = token;
     req.user = {
       id: decoded.sub,
       email: decoded.email,

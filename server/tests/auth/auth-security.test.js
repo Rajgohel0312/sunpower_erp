@@ -8,6 +8,8 @@ import assert from 'node:assert/strict';
 import { z } from 'zod';
 import { hashPassword, comparePassword, hashToken, generateSecureToken } from '../../src/utils/crypto.js';
 import { signAccessToken, verifyAccessToken, signRefreshToken, verifyRefreshToken } from '../../src/utils/jwt.js';
+import { tokenStore } from '../../src/utils/token-store.js';
+import { authenticate } from '../../src/middleware/auth.js';
 import { requirePermission, requireRole } from '../../src/middleware/rbac.js';
 import { validate } from '../../src/middleware/validate.js';
 import { loginSchema } from '../../src/modules/auth/auth.schemas.js';
@@ -289,5 +291,48 @@ describe('Phase 2 — Standard Response Envelope', () => {
     assert.equal(sentJson.error.message, 'Row is locked by another transaction');
     assert.deepEqual(sentJson.error.details, { rowId: 'row-1' });
     assert.equal(sentJson.error.requestId, 'req-uuid-456');
+  });
+});
+
+describe('Phase 2 — Token Revocation & Immediate Logout', () => {
+  test('revoking a token causes authenticate middleware to reject with 401 TOKEN_REVOKED', () => {
+    const validToken = signAccessToken({
+      sub: 'user-logout-test',
+      email: 'logout@sunpower.com',
+      roles: ['SALES_REP'],
+      permissions: ['leads:read']
+    });
+
+    const req = {
+      headers: { authorization: `Bearer ${validToken}` },
+      cookies: {}
+    };
+
+    let caughtErr = null;
+    authenticate(req, {}, (err) => {
+      caughtErr = err;
+    });
+
+    // Valid before revocation
+    assert.equal(caughtErr, undefined);
+    assert.equal(req.user.id, 'user-logout-test');
+
+    // Revoke token
+    tokenStore.revoke(validToken);
+
+    // Try authenticate again with revoked token
+    let revokedErr = null;
+    const req2 = {
+      headers: { authorization: `Bearer ${validToken}` },
+      cookies: {}
+    };
+
+    authenticate(req2, {}, (err) => {
+      revokedErr = err;
+    });
+
+    assert.ok(revokedErr instanceof AppError);
+    assert.equal(revokedErr.statusCode, 401);
+    assert.equal(revokedErr.code, 'TOKEN_REVOKED');
   });
 });

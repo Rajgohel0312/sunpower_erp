@@ -7,6 +7,7 @@ import crypto from 'crypto';
 import { authRepository } from './auth.repository.js';
 import { comparePassword, hashPassword, hashToken, generateSecureToken } from '../../utils/crypto.js';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../../utils/jwt.js';
+import { tokenStore } from '../../utils/token-store.js';
 import { AppError } from '../../utils/response.js';
 import { withTransaction } from '../../database/pool.js';
 
@@ -198,18 +199,22 @@ export const authService = {
   },
 
   /**
-   * Logs out the user by revoking the refresh token
+   * Logs out the user by revoking the refresh token and adding access token to denylist
    */
-  async logout({ rawRefreshToken }) {
-    if (!rawRefreshToken) return;
-    try {
-      const hashed = hashToken(rawRefreshToken);
-      const token = await authRepository.findRefreshToken(hashed);
-      if (token) {
-        await authRepository.revokeRefreshToken(token.id);
+  async logout({ rawRefreshToken, rawAccessToken }) {
+    if (rawAccessToken) {
+      tokenStore.revoke(rawAccessToken);
+    }
+    if (rawRefreshToken) {
+      try {
+        const hashed = hashToken(rawRefreshToken);
+        const token = await authRepository.findRefreshToken(hashed);
+        if (token) {
+          await authRepository.revokeRefreshToken(token.id);
+        }
+      } catch (err) {
+        // Silent on logout errors
       }
-    } catch (err) {
-      // Silent on logout errors
     }
   },
 

@@ -76,7 +76,9 @@ export const authController = {
   async logout(req, res, next) {
     try {
       const rawRefreshToken = req.cookies.refresh_token || req.body.refreshToken;
-      await authService.logout({ rawRefreshToken });
+      const rawAccessToken = req.token || (req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.substring(7) : null);
+
+      await authService.logout({ rawRefreshToken, rawAccessToken });
 
       res.clearCookie('refresh_token', { ...COOKIE_OPTIONS, maxAge: 0 });
 
