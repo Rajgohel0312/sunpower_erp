@@ -5,6 +5,7 @@
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
+import { z } from 'zod';
 import { hashPassword, comparePassword, hashToken, generateSecureToken } from '../../src/utils/crypto.js';
 import { signAccessToken, verifyAccessToken, signRefreshToken, verifyRefreshToken } from '../../src/utils/jwt.js';
 import { requirePermission, requireRole } from '../../src/middleware/rbac.js';
@@ -223,6 +224,27 @@ describe('Phase 2 — Zod Schema Validation at Boundaries', () => {
     assert.equal(caughtErr.code, 'VALIDATION_ERROR');
     assert.ok(Array.isArray(caughtErr.details));
     assert.equal(caughtErr.details.length, 2);
+  });
+
+  test('validation middleware handles getter-only req.query without throwing TypeError', () => {
+    const querySchema = z.object({
+      page: z.coerce.number().default(1)
+    });
+    const middleware = validate({ query: querySchema });
+
+    // Simulate getter-only query property as in Express 5
+    const req = Object.create({
+      get query() { return { page: '5' }; }
+    });
+
+    let calledNext = false;
+    middleware(req, {}, (err) => {
+      assert.ifError(err);
+      calledNext = true;
+    });
+
+    assert.equal(calledNext, true);
+    assert.equal(req.query.page, 5);
   });
 });
 

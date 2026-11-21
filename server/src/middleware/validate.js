@@ -12,10 +12,30 @@ export function validate(schemas = {}) {
         req.body = schemas.body.parse(req.body);
       }
       if (schemas.query) {
-        req.query = schemas.query.parse(req.query);
+        const parsedQuery = schemas.query.parse(req.query);
+        try {
+          req.query = parsedQuery;
+        } catch {
+          Object.defineProperty(req, 'query', {
+            value: parsedQuery,
+            writable: true,
+            configurable: true,
+            enumerable: true
+          });
+        }
       }
       if (schemas.params) {
-        req.params = schemas.params.parse(req.params);
+        const parsedParams = schemas.params.parse(req.params);
+        try {
+          req.params = parsedParams;
+        } catch {
+          Object.defineProperty(req, 'params', {
+            value: parsedParams,
+            writable: true,
+            configurable: true,
+            enumerable: true
+          });
+        }
       }
       next();
     } catch (err) {
