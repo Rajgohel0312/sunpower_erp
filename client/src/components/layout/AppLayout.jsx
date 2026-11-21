@@ -13,7 +13,10 @@ import {
   ChevronRight,
   ClipboardCheck,
   Package,
-  ShoppingBag
+  ShoppingBag,
+  Boxes,
+  ShoppingCart,
+  ShieldCheck
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
 import Badge from '../common/Badge.jsx';
@@ -69,6 +72,24 @@ export function AppLayout() {
       label: 'Sales Orders',
       icon: ShoppingBag,
       permission: 'orders:read'
+    },
+    {
+      to: '/inventory/stock',
+      label: 'Inventory & Stock',
+      icon: Boxes,
+      permission: 'inventory:read'
+    },
+    {
+      to: '/procurement/orders',
+      label: 'Procurement & POs',
+      icon: ShoppingCart,
+      permission: 'purchase_orders:read'
+    },
+    {
+      to: '/inventory/serials',
+      label: 'Serial Explorer',
+      icon: ShieldCheck,
+      permission: 'serials:read'
     },
     {
       to: '/users',

@@ -9,6 +9,7 @@ import Button from '../../components/common/Button.jsx';
 import Badge from '../../components/common/Badge.jsx';
 import Modal from '../../components/common/Modal.jsx';
 import Pagination from '../../components/common/Pagination.jsx';
+import SearchableSelect from '../../components/common/SearchableSelect.jsx';
 
 export function CatalogPage() {
   const [products, setProducts] = useState([]);
@@ -41,6 +42,15 @@ export function CatalogPage() {
     hsn_code: '85414011',
     is_serial_tracked: false
   });
+
+  const categoryOptions = React.useMemo(() => {
+    return categories.map((c) => ({
+      value: c.id,
+      label: c.name,
+      subtitle: c.code ? `Code: ${c.code}` : undefined,
+      searchTerms: `${c.name} ${c.code || ''}`
+    }));
+  }, [categories]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -280,18 +290,16 @@ export function CatalogPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">Product Category *</label>
-              <select
+              <SearchableSelect
                 required
+                label="Product Category *"
+                options={categoryOptions}
                 value={formData.category_id}
-                onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
-              >
-                <option value="">Select Category...</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
+                onChange={(val) => setFormData({ ...formData, category_id: val })}
+                placeholder="Select Category..."
+                searchPlaceholder="Search product categories..."
+                emptyMessage="No matching categories"
+              />
             </div>
 
             <div>

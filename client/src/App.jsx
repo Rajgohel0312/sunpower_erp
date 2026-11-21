@@ -18,6 +18,10 @@ import { QuotationsListPage } from './pages/quotations/QuotationsListPage';
 import { QuotationDetailPage } from './pages/quotations/QuotationDetailPage';
 import { OrdersListPage } from './pages/orders/OrdersListPage';
 import { OrderDetailPage } from './pages/orders/OrderDetailPage';
+import { InventoryStockPage } from './pages/inventory/InventoryStockPage';
+import { StockMovementsPage } from './pages/inventory/StockMovementsPage';
+import { PurchaseOrdersPage } from './pages/procurement/PurchaseOrdersPage';
+import { SerialExplorerPage } from './pages/inventory/SerialExplorerPage';
 
 // Auth Guard Wrapper
 const ProtectedRoute = () => {
@@ -89,6 +93,10 @@ export const App = () => {
             <Route path="/quotations/:id" element={<QuotationDetailPage />} />
             <Route path="/orders" element={<OrdersListPage />} />
             <Route path="/orders/:id" element={<OrderDetailPage />} />
+            <Route path="/inventory/stock" element={<InventoryStockPage />} />
+            <Route path="/inventory/movements" element={<StockMovementsPage />} />
+            <Route path="/inventory/serials" element={<SerialExplorerPage />} />
+            <Route path="/procurement/orders" element={<PurchaseOrdersPage />} />
             <Route path="/users" element={<UsersListPage />} />
           </Route>
 

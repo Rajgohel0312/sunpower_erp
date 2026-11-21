@@ -20,6 +20,8 @@ import { surveyRouter } from './modules/surveys/survey.routes.js';
 import { bomRouter } from './modules/bom/bom.routes.js';
 import { quotationRouter } from './modules/quotations/quotation.routes.js';
 import { orderRouter } from './modules/orders/order.routes.js';
+import inventoryRouter from './modules/inventory/inventory.routes.js';
+import { procurementRouter, serialsRouter } from './modules/procurement/procurement.routes.js';
 
 export const app = express();
 
@@ -75,6 +77,9 @@ apiV1.use('/surveys', surveyRouter);
 apiV1.use('/boms', bomRouter);
 apiV1.use('/quotations', quotationRouter);
 apiV1.use('/orders', orderRouter);
+apiV1.use('/inventory', inventoryRouter);
+apiV1.use('/procurement', procurementRouter);
+apiV1.use('/serials', serialsRouter);
 apiV1.use('/', crmRouter);
 
 app.use('/api/v1', apiV1);

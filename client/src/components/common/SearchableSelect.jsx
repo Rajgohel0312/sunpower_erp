@@ -22,11 +22,26 @@ export function SearchableSelect({
   emptyMessage = 'No matching options found'
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [openUpward, setOpenUpward] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const containerRef = useRef(null);
   const searchInputRef = useRef(null);
   const listRef = useRef(null);
+
+  // Position detection to prevent dropdown from going out of viewport screen
+  useEffect(() => {
+    if (isOpen && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      if (spaceBelow < 250 && spaceAbove > spaceBelow) {
+        setOpenUpward(true);
+      } else {
+        setOpenUpward(false);
+      }
+    }
+  }, [isOpen]);
 
   // Selected Option Object
   const selectedOption = useMemo(() => {
@@ -158,11 +173,13 @@ export function SearchableSelect({
       {label && (
         <label className="block text-xs font-medium text-slate-700 mb-1 flex items-center justify-between">
           <span>{label}</span>
-          {options.length > 0 && (
+          {hint ? (
+            <span className="text-[11px] text-slate-400 font-normal">{hint}</span>
+          ) : options.length > 0 ? (
             <span className="text-[11px] text-slate-400 font-normal">
               {options.length} {options.length === 1 ? 'item' : 'items'}
             </span>
-          )}
+          ) : null}
         </label>
       )}
 
@@ -218,9 +235,13 @@ export function SearchableSelect({
         </div>
       </button>
 
-      {/* Floating Dropdown */}
+      {/* Floating Dropdown - Viewport Bounded */}
       {isOpen && (
-        <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 overflow-hidden flex flex-col animation-fadeIn">
+        <div
+          className={`absolute left-0 right-0 ${
+            openUpward ? 'bottom-full mb-1.5' : 'top-full mt-1.5'
+          } bg-white border border-slate-200 rounded-xl shadow-2xl z-50 overflow-hidden flex flex-col animation-fadeIn`}
+        >
           {/* Search Bar */}
           <div className="p-2 border-b border-slate-100 bg-slate-50/70 flex items-center gap-2 shrink-0">
             <Search className="w-4 h-4 text-slate-400 ml-1.5 shrink-0" />

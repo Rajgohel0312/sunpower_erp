@@ -3,9 +3,12 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import Button from './Button.jsx';
 
 export function Pagination({
-  page = 1,
-  limit = 20,
-  total = 0,
+  page: propPage,
+  currentPage,
+  limit: propLimit,
+  pageSize,
+  total: propTotal,
+  totalItems,
   totalPages = 1,
   onPageChange,
   onLimitChange,
@@ -13,6 +16,10 @@ export function Pagination({
   pageSizes = [10, 20, 50, 100],
   className = ''
 }) {
+  const page = propPage ?? currentPage ?? 1;
+  const limit = propLimit ?? pageSize ?? 20;
+  const total = propTotal ?? totalItems ?? 0;
+
   if (total === 0) return null;
 
   const start = (page - 1) * limit + 1;

@@ -94,6 +94,7 @@ model customers {
   project_boms       project_boms[]
   quotations         quotations[]
   sales_orders       sales_orders[]
+  serial_numbers     serial_numbers[]
   surveys            surveys[]
 
   @@index([customer_code], map: "idx_customers_code")
@@ -308,37 +309,44 @@ model user_roles {
 }
 
 model users {
-  id                                           String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email                                        String               @unique @db.VarChar(255)
-  phone_e164                                   String               @unique @db.VarChar(20)
-  password_hash                                String               @db.VarChar(255)
-  full_name                                    String               @db.VarChar(150)
-  is_active                                    Boolean              @default(true)
-  failed_login_attempts                        Int                  @default(0)
-  locked_until                                 DateTime?            @db.Timestamptz(6)
-  password_reset_token_hash                    String?              @db.VarChar(64)
-  password_reset_expires_at                    DateTime?            @db.Timestamptz(6)
-  created_at                                   DateTime             @default(now()) @db.Timestamptz(6)
-  updated_at                                   DateTime             @default(now()) @db.Timestamptz(6)
-  deleted_at                                   DateTime?            @db.Timestamptz(6)
-  customer_documents                           customer_documents[]
-  customers                                    customers[]
-  follow_ups                                   follow_ups[]
-  lead_activities                              lead_activities[]
-  leads_leads_assigned_toTousers               leads[]              @relation("leads_assigned_toTousers")
-  leads_leads_created_byTousers                leads[]              @relation("leads_created_byTousers")
-  login_events                                 login_events[]
-  product_prices                               product_prices[]
-  project_boms_project_boms_approved_byTousers project_boms[]       @relation("project_boms_approved_byTousers")
-  project_boms_project_boms_created_byTousers  project_boms[]       @relation("project_boms_created_byTousers")
-  quotations_quotations_approved_byTousers     quotations[]         @relation("quotations_approved_byTousers")
-  quotations_quotations_created_byTousers      quotations[]         @relation("quotations_created_byTousers")
-  refresh_tokens                               refresh_tokens[]
-  sales_orders                                 sales_orders[]
-  surveys_surveys_assigned_engineer_idTousers  surveys[]            @relation("surveys_assigned_engineer_idTousers")
-  surveys_surveys_created_byTousers            surveys[]            @relation("surveys_created_byTousers")
-  surveys_surveys_reviewed_byTousers           surveys[]            @relation("surveys_reviewed_byTousers")
-  user_roles                                   user_roles[]
+  id                                                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                                              String               @unique @db.VarChar(255)
+  phone_e164                                         String               @unique @db.VarChar(20)
+  password_hash                                      String               @db.VarChar(255)
+  full_name                                          String               @db.VarChar(150)
+  is_active                                          Boolean              @default(true)
+  failed_login_attempts                              Int                  @default(0)
+  locked_until                                       DateTime?            @db.Timestamptz(6)
+  password_reset_token_hash                          String?              @db.VarChar(64)
+  password_reset_expires_at                          DateTime?            @db.Timestamptz(6)
+  created_at                                         DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at                                         DateTime             @default(now()) @db.Timestamptz(6)
+  deleted_at                                         DateTime?            @db.Timestamptz(6)
+  customer_documents                                 customer_documents[]
+  customers                                          customers[]
+  follow_ups                                         follow_ups[]
+  goods_receipts                                     goods_receipts[]
+  lead_activities                                    lead_activities[]
+  leads_leads_assigned_toTousers                     leads[]              @relation("leads_assigned_toTousers")
+  leads_leads_created_byTousers                      leads[]              @relation("leads_created_byTousers")
+  login_events                                       login_events[]
+  product_prices                                     product_prices[]
+  project_boms_project_boms_approved_byTousers       project_boms[]       @relation("project_boms_approved_byTousers")
+  project_boms_project_boms_created_byTousers        project_boms[]       @relation("project_boms_created_byTousers")
+  purchase_orders_purchase_orders_approved_byTousers purchase_orders[]    @relation("purchase_orders_approved_byTousers")
+  purchase_orders_purchase_orders_created_byTousers  purchase_orders[]    @relation("purchase_orders_created_byTousers")
+  quotations_quotations_approved_byTousers           quotations[]         @relation("quotations_approved_byTousers")
+  quotations_quotations_created_byTousers            quotations[]         @relation("quotations_created_byTousers")
+  refresh_tokens                                     refresh_tokens[]
+  sales_orders                                       sales_orders[]
+  serial_movements                                   serial_movements[]
+  stock_movements                                    stock_movements[]
+  stock_reservations                                 stock_reservations[]
+  surveys_surveys_assigned_engineer_idTousers        surveys[]            @relation("surveys_assigned_engineer_idTousers")
+  surveys_surveys_created_byTousers                  surveys[]            @relation("surveys_created_byTousers")
+  surveys_surveys_reviewed_byTousers                 surveys[]            @relation("surveys_reviewed_byTousers")
+  user_roles                                         user_roles[]
+  warehouses                                         warehouses[]
 
   @@index([email], map: "idx_users_email")
   @@index([phone_e164], map: "idx_users_phone")
@@ -373,11 +381,17 @@ model products {
   created_at             DateTime                @default(now()) @db.Timestamptz(6)
   updated_at             DateTime                @default(now()) @db.Timestamptz(6)
   deleted_at             DateTime?               @db.Timestamptz(6)
+  goods_receipt_items    goods_receipt_items[]
   product_prices         product_prices[]
   product_specifications product_specifications?
   product_categories     product_categories      @relation(fields: [category_id], references: [id], onUpdate: NoAction)
   project_bom_items      project_bom_items[]
+  purchase_order_items   purchase_order_items[]
   quotation_items        quotation_items[]
+  serial_numbers         serial_numbers[]
+  stock_balances         stock_balances[]
+  stock_movements        stock_movements[]
+  stock_reservations     stock_reservations[]
 
   @@index([brand], map: "idx_products_brand")
   @@index([category_id], map: "idx_products_category")
@@ -685,34 +699,36 @@ model quotations {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model sales_orders {
-  id                       String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  order_number             String        @unique @db.VarChar(50)
-  quotation_id             String        @db.Uuid
-  customer_id              String        @db.Uuid
-  lead_id                  String?       @db.Uuid
-  survey_id                String?       @db.Uuid
-  bom_id                   String?       @db.Uuid
-  system_capacity_kw       Decimal       @db.Decimal(10, 2)
-  total_amount             Decimal       @db.Decimal(14, 2)
-  subsidy_amount           Decimal       @default(0.00) @db.Decimal(14, 2)
-  net_customer_payable     Decimal       @db.Decimal(14, 2)
-  advance_payment_received Decimal       @default(0.00) @db.Decimal(14, 2)
-  payment_status           String        @default("PENDING") @db.VarChar(50)
-  status                   String        @default("CONFIRMED") @db.VarChar(50)
+  id                       String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  order_number             String               @unique @db.VarChar(50)
+  quotation_id             String               @db.Uuid
+  customer_id              String               @db.Uuid
+  lead_id                  String?              @db.Uuid
+  survey_id                String?              @db.Uuid
+  bom_id                   String?              @db.Uuid
+  system_capacity_kw       Decimal              @db.Decimal(10, 2)
+  total_amount             Decimal              @db.Decimal(14, 2)
+  subsidy_amount           Decimal              @default(0.00) @db.Decimal(14, 2)
+  net_customer_payable     Decimal              @db.Decimal(14, 2)
+  advance_payment_received Decimal              @default(0.00) @db.Decimal(14, 2)
+  payment_status           String               @default("PENDING") @db.VarChar(50)
+  status                   String               @default("CONFIRMED") @db.VarChar(50)
   snapshot_data            Json
-  confirmed_by             String?       @db.Uuid
-  confirmed_at             DateTime      @default(now()) @db.Timestamptz(6)
-  installation_target_date DateTime?     @db.Date
+  confirmed_by             String?              @db.Uuid
+  confirmed_at             DateTime             @default(now()) @db.Timestamptz(6)
+  installation_target_date DateTime?            @db.Date
   notes                    String?
-  created_at               DateTime      @default(now()) @db.Timestamptz(6)
-  updated_at               DateTime      @default(now()) @db.Timestamptz(6)
-  deleted_at               DateTime?     @db.Timestamptz(6)
-  project_boms             project_boms? @relation(fields: [bom_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  users                    users?        @relation(fields: [confirmed_by], references: [id], onUpdate: NoAction)
-  customers                customers     @relation(fields: [customer_id], references: [id], onUpdate: NoAction)
-  leads                    leads?        @relation(fields: [lead_id], references: [id], onUpdate: NoAction)
-  quotations               quotations    @relation(fields: [quotation_id], references: [id], onUpdate: NoAction)
-  surveys                  surveys?      @relation(fields: [survey_id], references: [id], onUpdate: NoAction)
+  created_at               DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime             @default(now()) @db.Timestamptz(6)
+  deleted_at               DateTime?            @db.Timestamptz(6)
+  project_boms             project_boms?        @relation(fields: [bom_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  users                    users?               @relation(fields: [confirmed_by], references: [id], onUpdate: NoAction)
+  customers                customers            @relation(fields: [customer_id], references: [id], onUpdate: NoAction)
+  leads                    leads?               @relation(fields: [lead_id], references: [id], onUpdate: NoAction)
+  quotations               quotations           @relation(fields: [quotation_id], references: [id], onUpdate: NoAction)
+  surveys                  surveys?             @relation(fields: [survey_id], references: [id], onUpdate: NoAction)
+  serial_numbers           serial_numbers[]
+  stock_reservations       stock_reservations[]
 
   @@index([created_at(sort: Desc)], map: "idx_sales_orders_created_at")
   @@index([customer_id], map: "idx_sales_orders_customer")
@@ -720,4 +736,262 @@ model sales_orders {
   @@index([order_number], map: "idx_sales_orders_number")
   @@index([quotation_id], map: "idx_sales_orders_quotation")
   @@index([status], map: "idx_sales_orders_status")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model goods_receipt_items {
+  id                   String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  grn_id               String                @db.Uuid
+  po_item_id           String?               @db.Uuid
+  product_id           String                @db.Uuid
+  quantity_received    Decimal               @db.Decimal(14, 3)
+  quantity_accepted    Decimal               @db.Decimal(14, 3)
+  quantity_rejected    Decimal               @default(0) @db.Decimal(14, 3)
+  rejection_reason     String?
+  unit_cost            Decimal               @db.Decimal(14, 2)
+  created_at           DateTime              @default(now()) @db.Timestamptz(6)
+  goods_receipts       goods_receipts        @relation(fields: [grn_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  purchase_order_items purchase_order_items? @relation(fields: [po_item_id], references: [id], onUpdate: NoAction)
+  products             products              @relation(fields: [product_id], references: [id], onUpdate: NoAction)
+
+  @@index([grn_id], map: "idx_grn_items_grn")
+  @@index([product_id], map: "idx_grn_items_product")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model goods_receipts {
+  id                     String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  grn_number             String                @unique @db.VarChar(50)
+  po_id                  String?               @db.Uuid
+  supplier_id            String                @db.Uuid
+  warehouse_id           String                @db.Uuid
+  invoice_challan_number String?               @db.VarChar(100)
+  invoice_challan_date   DateTime?             @db.Date
+  status                 String                @default("RECEIVED") @db.VarChar(50)
+  notes                  String?
+  received_by            String                @db.Uuid
+  received_at            DateTime              @default(now()) @db.Timestamptz(6)
+  created_at             DateTime              @default(now()) @db.Timestamptz(6)
+  goods_receipt_items    goods_receipt_items[]
+  purchase_orders        purchase_orders?      @relation(fields: [po_id], references: [id], onUpdate: NoAction)
+  users                  users                 @relation(fields: [received_by], references: [id], onUpdate: NoAction)
+  suppliers              suppliers             @relation(fields: [supplier_id], references: [id], onUpdate: NoAction)
+  warehouses             warehouses            @relation(fields: [warehouse_id], references: [id], onUpdate: NoAction)
+  serial_numbers         serial_numbers[]
+
+  @@index([grn_number], map: "idx_goods_receipts_number")
+  @@index([po_id], map: "idx_goods_receipts_po")
+  @@index([supplier_id], map: "idx_goods_receipts_supplier")
+  @@index([warehouse_id], map: "idx_goods_receipts_warehouse")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model purchase_order_items {
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  po_id               String                @db.Uuid
+  product_id          String                @db.Uuid
+  quantity_ordered    Decimal               @db.Decimal(14, 3)
+  quantity_received   Decimal               @default(0) @db.Decimal(14, 3)
+  unit_price          Decimal               @db.Decimal(14, 2)
+  tax_rate_pct        Decimal               @default(12.00) @db.Decimal(5, 2)
+  total_amount        Decimal               @db.Decimal(14, 2)
+  created_at          DateTime              @default(now()) @db.Timestamptz(6)
+  goods_receipt_items goods_receipt_items[]
+  purchase_orders     purchase_orders       @relation(fields: [po_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products            products              @relation(fields: [product_id], references: [id], onUpdate: NoAction)
+
+  @@index([po_id], map: "idx_po_items_po")
+  @@index([product_id], map: "idx_po_items_product")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model purchase_orders {
+  id                                       String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  po_number                                String                 @unique @db.VarChar(50)
+  supplier_id                              String                 @db.Uuid
+  warehouse_id                             String                 @db.Uuid
+  status                                   String                 @default("DRAFT") @db.VarChar(50)
+  subtotal                                 Decimal                @default(0.00) @db.Decimal(14, 2)
+  tax_amount                               Decimal                @default(0.00) @db.Decimal(14, 2)
+  total_amount                             Decimal                @default(0.00) @db.Decimal(14, 2)
+  expected_delivery_date                   DateTime?              @db.Date
+  notes                                    String?
+  created_by                               String?                @db.Uuid
+  approved_by                              String?                @db.Uuid
+  approved_at                              DateTime?              @db.Timestamptz(6)
+  created_at                               DateTime               @default(now()) @db.Timestamptz(6)
+  updated_at                               DateTime               @default(now()) @db.Timestamptz(6)
+  goods_receipts                           goods_receipts[]
+  purchase_order_items                     purchase_order_items[]
+  users_purchase_orders_approved_byTousers users?                 @relation("purchase_orders_approved_byTousers", fields: [approved_by], references: [id], onUpdate: NoAction)
+  users_purchase_orders_created_byTousers  users?                 @relation("purchase_orders_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction)
+  suppliers                                suppliers              @relation(fields: [supplier_id], references: [id], onUpdate: NoAction)
+  warehouses                               warehouses             @relation(fields: [warehouse_id], references: [id], onUpdate: NoAction)
+
+  @@index([created_at(sort: Desc)], map: "idx_purchase_orders_created_at")
+  @@index([po_number], map: "idx_purchase_orders_number")
+  @@index([status], map: "idx_purchase_orders_status")
+  @@index([supplier_id], map: "idx_purchase_orders_supplier")
+  @@index([warehouse_id], map: "idx_purchase_orders_warehouse")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model serial_movements {
+  id                                                        String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  serial_id                                                 String         @db.Uuid
+  from_status                                               String?        @db.VarChar(50)
+  to_status                                                 String         @db.VarChar(50)
+  from_warehouse_id                                         String?        @db.Uuid
+  to_warehouse_id                                           String?        @db.Uuid
+  reference_type                                            String         @db.VarChar(50)
+  reference_id                                              String?        @db.Uuid
+  actor_id                                                  String?        @db.Uuid
+  notes                                                     String?
+  created_at                                                DateTime       @default(now()) @db.Timestamptz(6)
+  users                                                     users?         @relation(fields: [actor_id], references: [id], onUpdate: NoAction)
+  warehouses_serial_movements_from_warehouse_idTowarehouses warehouses?    @relation("serial_movements_from_warehouse_idTowarehouses", fields: [from_warehouse_id], references: [id], onUpdate: NoAction)
+  serial_numbers                                            serial_numbers @relation(fields: [serial_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  warehouses_serial_movements_to_warehouse_idTowarehouses   warehouses?    @relation("serial_movements_to_warehouse_idTowarehouses", fields: [to_warehouse_id], references: [id], onUpdate: NoAction)
+
+  @@index([serial_id, created_at(sort: Desc)], map: "idx_serial_movements_serial")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model serial_numbers {
+  id                  String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  serial_number       String             @unique @db.VarChar(100)
+  product_id          String             @db.Uuid
+  warehouse_id        String?            @db.Uuid
+  status              String             @default("AVAILABLE") @db.VarChar(50)
+  current_order_id    String?            @db.Uuid
+  current_customer_id String?            @db.Uuid
+  grn_id              String?            @db.Uuid
+  manufacturing_date  DateTime?          @db.Date
+  created_at          DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime           @default(now()) @db.Timestamptz(6)
+  serial_movements    serial_movements[]
+  customers           customers?         @relation(fields: [current_customer_id], references: [id], onUpdate: NoAction)
+  sales_orders        sales_orders?      @relation(fields: [current_order_id], references: [id], onUpdate: NoAction)
+  goods_receipts      goods_receipts?    @relation(fields: [grn_id], references: [id], onUpdate: NoAction)
+  products            products           @relation(fields: [product_id], references: [id], onUpdate: NoAction)
+  warehouses          warehouses?        @relation(fields: [warehouse_id], references: [id], onUpdate: NoAction)
+
+  @@index([current_order_id], map: "idx_serials_order")
+  @@index([product_id, warehouse_id, status], map: "idx_serials_prod_wh")
+  @@index([serial_number], map: "idx_serials_serial")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model stock_balances {
+  id                 String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  product_id         String     @db.Uuid
+  warehouse_id       String     @db.Uuid
+  quantity_on_hand   Decimal    @default(0) @db.Decimal(14, 3)
+  quantity_reserved  Decimal    @default(0) @db.Decimal(14, 3)
+  quantity_available Decimal    @default(0) @db.Decimal(14, 3)
+  reorder_level      Decimal    @default(10.000) @db.Decimal(14, 3)
+  updated_at         DateTime   @default(now()) @db.Timestamptz(6)
+  products           products   @relation(fields: [product_id], references: [id], onUpdate: NoAction)
+  warehouses         warehouses @relation(fields: [warehouse_id], references: [id], onUpdate: NoAction)
+
+  @@unique([product_id, warehouse_id], map: "uq_stock_balances_product_wh")
+  @@index([product_id], map: "idx_stock_balances_product")
+  @@index([warehouse_id], map: "idx_stock_balances_warehouse")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model stock_movements {
+  id                      String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  movement_number         String     @unique @db.VarChar(50)
+  product_id              String     @db.Uuid
+  warehouse_id            String     @db.Uuid
+  movement_type           String     @db.VarChar(50)
+  quantity                Decimal    @db.Decimal(14, 3)
+  quantity_on_hand_before Decimal    @db.Decimal(14, 3)
+  quantity_on_hand_after  Decimal    @db.Decimal(14, 3)
+  reference_type          String     @db.VarChar(50)
+  reference_id            String     @db.Uuid
+  actor_id                String?    @db.Uuid
+  notes                   String?
+  created_at              DateTime   @default(now()) @db.Timestamptz(6)
+  users                   users?     @relation(fields: [actor_id], references: [id], onUpdate: NoAction)
+  products                products   @relation(fields: [product_id], references: [id], onUpdate: NoAction)
+  warehouses              warehouses @relation(fields: [warehouse_id], references: [id], onUpdate: NoAction)
+
+  @@index([product_id, warehouse_id, created_at(sort: Desc)], map: "idx_stock_movements_prod_wh")
+  @@index([reference_type, reference_id], map: "idx_stock_movements_ref")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model stock_reservations {
+  id                String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sales_order_id    String       @db.Uuid
+  product_id        String       @db.Uuid
+  warehouse_id      String       @db.Uuid
+  quantity_reserved Decimal      @db.Decimal(14, 3)
+  status            String       @default("ACTIVE") @db.VarChar(50)
+  created_by        String?      @db.Uuid
+  created_at        DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime     @default(now()) @db.Timestamptz(6)
+  users             users?       @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+  products          products     @relation(fields: [product_id], references: [id], onUpdate: NoAction)
+  sales_orders      sales_orders @relation(fields: [sales_order_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  warehouses        warehouses   @relation(fields: [warehouse_id], references: [id], onUpdate: NoAction)
+
+  @@unique([sales_order_id, product_id, warehouse_id], map: "uq_stock_reservation")
+  @@index([sales_order_id], map: "idx_stock_res_order")
+  @@index([product_id], map: "idx_stock_res_product")
+  @@index([status], map: "idx_stock_res_status")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model suppliers {
+  id                 String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  supplier_code      String            @unique @db.VarChar(50)
+  name               String            @db.VarChar(150)
+  contact_person     String?           @db.VarChar(100)
+  phone_e164         String            @db.VarChar(20)
+  email              String?           @db.VarChar(255)
+  gstin              String?           @db.VarChar(15)
+  payment_terms_days Int               @default(30)
+  address_line1      String?           @db.VarChar(255)
+  city               String?           @db.VarChar(100)
+  state              String?           @default("Gujarat") @db.VarChar(100)
+  pincode            String?           @db.VarChar(10)
+  is_active          Boolean           @default(true)
+  created_at         DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime          @default(now()) @db.Timestamptz(6)
+  goods_receipts     goods_receipts[]
+  purchase_orders    purchase_orders[]
+
+  @@index([is_active], map: "idx_suppliers_active")
+  @@index([supplier_code], map: "idx_suppliers_code")
+  @@index([phone_e164], map: "idx_suppliers_phone")
+}
+
+model warehouses {
+  id                                                              String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                                                            String               @unique @db.VarChar(50)
+  name                                                            String               @db.VarChar(150)
+  address_line1                                                   String               @db.VarChar(255)
+  address_line2                                                   String?              @db.VarChar(255)
+  city                                                            String               @db.VarChar(100)
+  state                                                           String               @default("Gujarat") @db.VarChar(100)
+  pincode                                                         String               @db.VarChar(10)
+  manager_id                                                      String?              @db.Uuid
+  is_active                                                       Boolean              @default(true)
+  created_at                                                      DateTime             @default(now()) @db.Timestamptz(6)
+  updated_at                                                      DateTime             @default(now()) @db.Timestamptz(6)
+  goods_receipts                                                  goods_receipts[]
+  purchase_orders                                                 purchase_orders[]
+  serial_movements_serial_movements_from_warehouse_idTowarehouses serial_movements[]   @relation("serial_movements_from_warehouse_idTowarehouses")
+  serial_movements_serial_movements_to_warehouse_idTowarehouses   serial_movements[]   @relation("serial_movements_to_warehouse_idTowarehouses")
+  serial_numbers                                                  serial_numbers[]
+  stock_balances                                                  stock_balances[]
+  stock_movements                                                 stock_movements[]
+  stock_reservations                                              stock_reservations[]
+  users                                                           users?               @relation(fields: [manager_id], references: [id], onUpdate: NoAction)
+
+  @@index([is_active], map: "idx_warehouses_active")
+  @@index([code], map: "idx_warehouses_code")
 }

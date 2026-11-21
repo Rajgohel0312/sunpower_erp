@@ -21,6 +21,7 @@ import Button from '../../components/common/Button.jsx';
 import Badge from '../../components/common/Badge.jsx';
 import Modal from '../../components/common/Modal.jsx';
 import Pagination from '../../components/common/Pagination.jsx';
+import SearchableSelect from '../../components/common/SearchableSelect.jsx';
 
 const STAGES = [
   'ALL',
@@ -71,6 +72,15 @@ export function LeadsListPage() {
   const [surveySubmitting, setSurveySubmitting] = useState(false);
   const [surveyError, setSurveyError] = useState('');
   const [surveySuccess, setSurveySuccess] = useState('');
+
+  const engineerOptions = React.useMemo(() => {
+    return engineers.map((u) => ({
+      value: u.id,
+      label: u.full_name,
+      subtitle: u.roles?.join(', ') || 'Field Staff',
+      searchTerms: `${u.full_name} ${u.email || ''} ${u.roles?.join(' ') || ''}`
+    }));
+  }, [engineers]);
 
   // Form State for Create Lead
   const [formData, setFormData] = useState({
@@ -641,22 +651,16 @@ export function LeadsListPage() {
             )}
 
             <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">
-                Assign Field Engineer *
-              </label>
-              <select
+              <SearchableSelect
                 required
+                label="Assign Field Engineer *"
+                options={engineerOptions}
                 value={surveyFormData.assigned_engineer_id}
-                onChange={(e) => setSurveyFormData({ ...surveyFormData, assigned_engineer_id: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-midnight focus:outline-none"
-              >
-                <option value="">Select Field Engineer...</option>
-                {engineers.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.full_name} ({u.roles?.join(', ') || 'Staff'})
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setSurveyFormData((prev) => ({ ...prev, assigned_engineer_id: val }))}
+                placeholder="Select Field Engineer..."
+                searchPlaceholder="Search engineers by name or role..."
+                emptyMessage="No matching engineers found"
+              />
             </div>
 
             <div>

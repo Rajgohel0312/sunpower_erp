@@ -11,6 +11,7 @@ import { api } from '../../api/client.js';
 import Button from '../../components/common/Button.jsx';
 import Badge from '../../components/common/Badge.jsx';
 import Modal from '../../components/common/Modal.jsx';
+import SearchableSelect from '../../components/common/SearchableSelect.jsx';
 
 export function SurveyDetailPage() {
   const { id } = useParams();
@@ -320,6 +321,56 @@ export function SurveyDetailPage() {
   const structureOptions = catalogProducts.filter(p => p.product_categories?.code === 'STRUCTURE' || p.sku?.startsWith('STR'));
   const dcCableOptions = catalogProducts.filter(p => (p.product_categories?.code === 'CABLE' || p.sku?.startsWith('CBL')) && (p.sku?.includes('DC') || p.product_specifications?.is_uv_resistant));
   const acCableOptions = catalogProducts.filter(p => (p.product_categories?.code === 'CABLE' || p.sku?.startsWith('CBL')) && (p.sku?.includes('AC') || p.product_specifications?.is_armored));
+
+  const panelOptionsFormatted = React.useMemo(() => [
+    { value: '', label: 'Auto-select Optimum Tier-A Brand (Default Engine Choice)' },
+    ...panelOptions.map((p) => ({
+      value: p.id,
+      label: `${p.brand} ${p.model_name || p.sku}`,
+      subtitle: `${p.rated_capacity_w || 540}W Mono PERC • ₹${Number(p.standard_cost).toLocaleString('en-IN')}/module`,
+      searchTerms: `${p.brand} ${p.model_name} ${p.sku}`
+    }))
+  ], [panelOptions]);
+
+  const inverterOptionsFormatted = React.useMemo(() => [
+    { value: '', label: 'Auto-select Optimum Sized Inverter (Default Engine Choice)' },
+    ...inverterOptions.map((p) => ({
+      value: p.id,
+      label: `${p.brand} ${p.model_name || p.sku}`,
+      subtitle: `${p.rated_capacity_w ? `${(p.rated_capacity_w / 1000).toFixed(1)} kW` : 'Inverter'} • ₹${Number(p.standard_cost).toLocaleString('en-IN')}`,
+      searchTerms: `${p.brand} ${p.model_name} ${p.sku}`
+    }))
+  ], [inverterOptions]);
+
+  const structureOptionsFormatted = React.useMemo(() => [
+    { value: '', label: 'Auto-adapt based on Roof Substrate (Default Engine Choice)' },
+    ...structureOptions.map((p) => ({
+      value: p.id,
+      label: `${p.brand} ${p.model_name || p.sku}`,
+      subtitle: `₹${Number(p.standard_cost).toLocaleString('en-IN')}/${p.unit_code}`,
+      searchTerms: `${p.brand} ${p.model_name} ${p.sku}`
+    }))
+  ], [structureOptions]);
+
+  const dcCableOptionsFormatted = React.useMemo(() => [
+    { value: '', label: 'Auto-select DC Cable Brand' },
+    ...dcCableOptions.map((p) => ({
+      value: p.id,
+      label: `${p.brand} ${p.model_name || p.sku}`,
+      subtitle: `₹${Number(p.standard_cost).toLocaleString('en-IN')}/m`,
+      searchTerms: `${p.brand} ${p.sku}`
+    }))
+  ], [dcCableOptions]);
+
+  const acCableOptionsFormatted = React.useMemo(() => [
+    { value: '', label: 'Auto-select AC Armored Cable Brand' },
+    ...acCableOptions.map((p) => ({
+      value: p.id,
+      label: `${p.brand} ${p.model_name || p.sku}`,
+      subtitle: `₹${Number(p.standard_cost).toLocaleString('en-IN')}/m`,
+      searchTerms: `${p.brand} ${p.sku}`
+    }))
+  ], [acCableOptions]);
 
   return (
     <div className="space-y-5">
@@ -1383,64 +1434,41 @@ export function SurveyDetailPage() {
           </div>
 
           {/* Section 1: PV Modules */}
-          <div className="space-y-1">
-            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center justify-between">
-              <span>1. Solar PV Module Brand</span>
-              <span className="text-[11px] font-normal text-slate-500 font-mono">540W - 545W Mono PERC Half-Cut</span>
-            </label>
-            <select
+          <div>
+            <SearchableSelect
+              label="1. Solar PV Module Brand"
+              hint="540W - 545W Mono PERC Half-Cut"
+              options={panelOptionsFormatted}
               value={bomOverrides.panel_product_id}
-              onChange={(e) => setBomOverrides({ ...bomOverrides, panel_product_id: e.target.value })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white font-medium text-slate-900 focus:ring-2 focus:ring-solar-gold"
-            >
-              <option value="">Auto-select Optimum Tier-A Brand (Default Engine Choice)</option>
-              {panelOptions.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.brand} {p.model_name || p.sku} ({p.rated_capacity_w || 540}W) — ₹{Number(p.standard_cost).toLocaleString('en-IN')}/module
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setBomOverrides({ ...bomOverrides, panel_product_id: val })}
+              placeholder="Auto-select Optimum Tier-A Brand (Default Engine Choice)"
+              searchPlaceholder="Search solar modules by brand or wattage..."
+            />
           </div>
 
           {/* Section 2: Inverter */}
-          <div className="space-y-1">
-            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center justify-between">
-              <span>2. Grid-Tied Solar Inverter</span>
-              <span className="text-[11px] font-normal text-slate-500 font-mono">
-                {specs.supply_phase === 'THREE' ? '3-Phase (415V)' : 'Single Phase (230V)'}
-              </span>
-            </label>
-            <select
+          <div>
+            <SearchableSelect
+              label="2. Grid-Tied Solar Inverter"
+              hint={specs.supply_phase === 'THREE' ? '3-Phase (415V)' : 'Single Phase (230V)'}
+              options={inverterOptionsFormatted}
               value={bomOverrides.inverter_product_id}
-              onChange={(e) => setBomOverrides({ ...bomOverrides, inverter_product_id: e.target.value })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white font-medium text-slate-900 focus:ring-2 focus:ring-solar-gold"
-            >
-              <option value="">Auto-select Optimum Sized Inverter (Default Engine Choice)</option>
-              {inverterOptions.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.brand} {p.model_name || p.sku} ({p.rated_capacity_w ? `${(p.rated_capacity_w / 1000).toFixed(1)} kW` : 'Inverter'}) — ₹{Number(p.standard_cost).toLocaleString('en-IN')}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setBomOverrides({ ...bomOverrides, inverter_product_id: val })}
+              placeholder="Auto-select Optimum Sized Inverter (Default Engine Choice)"
+              searchPlaceholder="Search inverters by brand, capacity or phase..."
+            />
           </div>
 
           {/* Section 3: Mounting Structure */}
-          <div className="space-y-1">
-            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
-              3. Solar Mounting Structure Substrate
-            </label>
-            <select
+          <div>
+            <SearchableSelect
+              label="3. Solar Mounting Structure Substrate"
+              options={structureOptionsFormatted}
               value={bomOverrides.structure_product_id}
-              onChange={(e) => setBomOverrides({ ...bomOverrides, structure_product_id: e.target.value })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white font-medium text-slate-900 focus:ring-2 focus:ring-solar-gold"
-            >
-              <option value="">Auto-adapt based on Roof Substrate (Default Engine Choice)</option>
-              {structureOptions.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.brand} {p.model_name || p.sku} — ₹{Number(p.standard_cost).toLocaleString('en-IN')}/{p.unit_code}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setBomOverrides({ ...bomOverrides, structure_product_id: val })}
+              placeholder="Auto-adapt based on Roof Substrate (Default Engine Choice)"
+              searchPlaceholder="Search structures..."
+            />
           </div>
 
           {/* Section 4: Cables & Wiring Overrides */}
@@ -1451,19 +1479,14 @@ export function SurveyDetailPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* DC Solar Cable */}
               <div className="space-y-1">
-                <span className="text-[11px] font-semibold text-slate-700 block">DC Solar Cable (PV Array to Inverter)</span>
-                <select
+                <SearchableSelect
+                  label="DC Solar Cable (PV Array to Inverter)"
+                  options={dcCableOptionsFormatted}
                   value={bomOverrides.dc_cable_product_id}
-                  onChange={(e) => setBomOverrides({ ...bomOverrides, dc_cable_product_id: e.target.value })}
-                  className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white text-slate-900"
-                >
-                  <option value="">Auto-select DC Cable Brand</option>
-                  {dcCableOptions.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.brand} {p.sku} (₹{Number(p.standard_cost)}/m)
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setBomOverrides({ ...bomOverrides, dc_cable_product_id: val })}
+                  placeholder="Auto-select DC Cable Brand"
+                  searchPlaceholder="Search DC cables..."
+                />
                 <div className="flex items-center gap-2 pt-1">
                   <input
                     type="number"
@@ -1479,19 +1502,14 @@ export function SurveyDetailPage() {
 
               {/* AC Armored Cable */}
               <div className="space-y-1">
-                <span className="text-[11px] font-semibold text-slate-700 block">AC Armored Cable (Inverter to Meter)</span>
-                <select
+                <SearchableSelect
+                  label="AC Armored Cable (Inverter to Meter)"
+                  options={acCableOptionsFormatted}
                   value={bomOverrides.ac_cable_product_id}
-                  onChange={(e) => setBomOverrides({ ...bomOverrides, ac_cable_product_id: e.target.value })}
-                  className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white text-slate-900"
-                >
-                  <option value="">Auto-select AC Cable Brand</option>
-                  {acCableOptions.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.brand} {p.sku} (₹{Number(p.standard_cost)}/m)
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setBomOverrides({ ...bomOverrides, ac_cable_product_id: val })}
+                  placeholder="Auto-select AC Armored Cable Brand"
+                  searchPlaceholder="Search AC cables..."
+                />
                 <div className="flex items-center gap-2 pt-1">
                   <input
                     type="number"
