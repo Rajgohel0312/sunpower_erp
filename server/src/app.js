@@ -14,6 +14,7 @@ import { AppError } from './utils/response.js';
 
 import { authRouter } from './modules/auth/auth.routes.js';
 import { userRouter } from './modules/users/user.routes.js';
+import crmRouter from './modules/crm/crm.routes.js';
 
 export const app = express();
 
@@ -49,6 +50,8 @@ app.get('/health', (req, res) => {
 const apiV1 = express.Router();
 apiV1.use('/auth', authRouter);
 apiV1.use('/users', userRouter);
+apiV1.use('/crm', crmRouter);
+apiV1.use('/', crmRouter);
 
 app.use('/api/v1', apiV1);
 

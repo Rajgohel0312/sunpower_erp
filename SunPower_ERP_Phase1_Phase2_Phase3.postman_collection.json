@@ -1,0 +1,661 @@
+{
+  "info": {
+    "_postman_id": "c1f7b8e2-9b24-4f1a-8c63-4b9d5c8e2211",
+    "name": "SunPower ERP — Phase 1, 2 & 3 (Foundation, Auth/RBAC, CRM & Leads)",
+    "description": "Complete test collection for SunPower ERP APIs including automated token capture, token clearing on logout, refresh token rotation, RBAC, and Phase 3 CRM/Lead/Customer lifecycle verification.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "adminEmail",
+      "value": "admin@sunpower.com",
+      "type": "string"
+    },
+    {
+      "key": "adminPassword",
+      "value": "SunPower@Admin2026",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "createdUserId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "createdLeadId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "createdCustomerId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "createdFollowUpId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "0. System Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Verifies the Express server is up and responsive."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "1. Authentication & Token Lifecycle",
+      "item": [
+        {
+          "name": "Login (Auto-Captures Tokens)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const jsonData = pm.response.json();",
+                  "if (jsonData.success && jsonData.data && jsonData.data.tokens) {",
+                  "    pm.collectionVariables.set('accessToken', jsonData.data.tokens.accessToken);",
+                  "    pm.collectionVariables.set('refreshToken', jsonData.data.tokens.refreshToken);",
+                  "    console.log('[Postman] Access token and refresh token successfully saved to collection variables.');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "login"]
+            },
+            "description": "Logs in the initial administrator and automatically populates {{accessToken}} and {{refreshToken}} in the collection."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Authenticated Profile (/auth/me)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "me"]
+            },
+            "description": "Fetches the current user claims, active roles, and granted permissions using the Bearer access token."
+          },
+          "response": []
+        },
+        {
+          "name": "Rotate Refresh Token (/auth/refresh)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const jsonData = pm.response.json();",
+                  "if (jsonData.success && jsonData.data && jsonData.data.tokens) {",
+                  "    pm.collectionVariables.set('accessToken', jsonData.data.tokens.accessToken);",
+                  "    pm.collectionVariables.set('refreshToken', jsonData.data.tokens.refreshToken);",
+                  "    console.log('[Postman] Rotated access and refresh tokens updated in collection variables.');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "refresh"]
+            },
+            "description": "Rotates refresh token. Implements cryptographic family hash detection for replay protection."
+          },
+          "response": []
+        },
+        {
+          "name": "Logout (/auth/logout)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.collectionVariables.set('accessToken', '');",
+                  "pm.collectionVariables.set('refreshToken', '');",
+                  "console.log('[Postman] Logged out. Collection tokens cleared.');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "logout"]
+            },
+            "description": "Revokes the session refresh token and puts the active access token on the server denylist."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. User & RBAC Management",
+      "item": [
+        {
+          "name": "List Users (Paginated)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
+              ]
+            },
+            "description": "Lists all users with their roles and metadata. Requires users:read permission."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Sales Representative User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const jsonData = pm.response.json();",
+                  "if (jsonData.success && jsonData.data && jsonData.data.id) {",
+                  "    pm.collectionVariables.set('createdUserId', jsonData.data.id);",
+                  "    console.log('[Postman] Created user ID saved:', jsonData.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"sales.ahmedabad@sunpower.com\",\n  \"phone_e164\": \"+919825099887\",\n  \"password\": \"SalesPass2026!\",\n  \"full_name\": \"Kishan Patel\",\n  \"role_codes\": [\"SALES_REP\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users"]
+            },
+            "description": "Creates a new Sales Representative user with the SALES_REP role."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. Phase 3: CRM & Leads Pipeline",
+      "item": [
+        {
+          "name": "Check Duplicate Phone",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/crm/leads/duplicates/check?phone=9825012345",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "crm", "leads", "duplicates", "check"],
+              "query": [
+                { "key": "phone", "value": "9825012345" }
+              ]
+            },
+            "description": "Pre-check before creating a lead to warn sales reps if this customer already exists without silently merging."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Lead (Auto-Captures Lead ID)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const jsonData = pm.response.json();",
+                  "if (jsonData.success && jsonData.data && jsonData.data.id) {",
+                  "    pm.collectionVariables.set('createdLeadId', jsonData.data.id);",
+                  "    console.log('[Postman] Created Lead ID:', jsonData.data.id, 'Number:', jsonData.data.lead_number);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Vikram Shah\",\n  \"phone_e164\": \"9825012345\",\n  \"email\": \"vikram.shah@gmail.com\",\n  \"source\": \"WEBSITE\",\n  \"site_address\": \"14, Shivalik Bungalows, Bodakdev\",\n  \"city\": \"Ahmedabad\",\n  \"state\": \"Gujarat\",\n  \"pincode\": \"380054\",\n  \"monthly_electricity_bill\": 7500,\n  \"requested_capacity_kw\": 6.5,\n  \"system_type\": \"ON_GRID\",\n  \"notes\": \"Interested in PM Surya Ghar rooftop solar scheme.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/crm/leads",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "crm", "leads"]
+            },
+            "description": "Creates a new solar rooftop lead with automatic sequence number (e.g. LEAD-2026-00001)."
+          },
+          "response": []
+        },
+        {
+          "name": "List Leads (Filter by Stage/Search)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/crm/leads?page=1&limit=20&stage=NEW",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "crm", "leads"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "stage", "value": "NEW" }
+              ]
+            },
+            "description": "Lists leads with filtering by stage, source, assigned_to, and search."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Single Lead Details & Timeline",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/crm/leads/{{createdLeadId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "crm", "leads", "{{createdLeadId}}"]
+            },
+            "description": "Retrieves comprehensive lead details with activities and scheduled follow-ups."
+          },
+          "response": []
+        },
+        {
+          "name": "Transition Stage: NEW -> CONTACTED",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stage\": \"CONTACTED\",\n  \"notes\": \"Spoke on phone. Customer available for site survey on Saturday.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/crm/leads/{{createdLeadId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "crm", "leads", "{{createdLeadId}}"]
+            },
+            "description": "Transitions stage according to state machine rules and records audit activity."
+          },
+          "response": []
+        },
+        {
+          "name": "Log Activity (Call Log)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"activity_type\": \"CALL\",\n  \"details\": {\n    \"duration_seconds\": 240,\n    \"outcome\": \"CONNECTED\",\n    \"note\": \"Discussed 6.5 kW On-Grid system subsidy and ROI calculation.\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/crm/leads/{{createdLeadId}}/activities",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "crm", "leads", "{{createdLeadId}}", "activities"]
+            },
+            "description": "Logs an interaction activity (CALL, WHATSAPP, MEETING, NOTE) against the lead."
+          },
+          "response": []
+        },
+        {
+          "name": "Schedule Follow-up",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const jsonData = pm.response.json();",
+                  "if (jsonData.success && jsonData.data && jsonData.data.id) {",
+                  "    pm.collectionVariables.set('createdFollowUpId', jsonData.data.id);",
+                  "    console.log('[Postman] Created Follow-up ID:', jsonData.data.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"scheduled_at\": \"2026-11-25T10:00:00.000Z\",\n  \"notes\": \"Follow up on rooftop shadow check and quotation presentation.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/crm/leads/{{createdLeadId}}/follow-ups",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "crm", "leads", "{{createdLeadId}}", "follow-ups"]
+            },
+            "description": "Schedules an actionable reminder for sales staff."
+          },
+          "response": []
+        },
+        {
+          "name": "Complete Follow-up",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"COMPLETED\",\n  \"notes\": \"Call completed. Customer requested quotation.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/crm/follow-ups/{{createdFollowUpId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "crm", "follow-ups", "{{createdFollowUpId}}"]
+            },
+            "description": "Marks a follow-up as COMPLETED with timestamp."
+          },
+          "response": []
+        },
+        {
+          "name": "Convert Lead to Customer (Transactional)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const jsonData = pm.response.json();",
+                  "if (jsonData.success && jsonData.data && jsonData.data.customer) {",
+                  "    pm.collectionVariables.set('createdCustomerId', jsonData.data.customer.id);",
+                  "    console.log('[Postman] Converted Customer ID:', jsonData.data.customer.id, 'Code:', jsonData.data.customer.customer_code);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_type\": \"RESIDENTIAL\",\n  \"notes\": \"Converted lead to customer for rooftop solar installation project.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/crm/leads/{{createdLeadId}}/convert",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "crm", "leads", "{{createdLeadId}}", "convert"]
+            },
+            "description": "Transactionally converts lead to customer, generating CUST-YYYY-00001 code and linking primary site address."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. Phase 3: Customer Management & Timeline",
+      "item": [
+        {
+          "name": "List Customers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/crm/customers?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "crm", "customers"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" }
+              ]
+            },
+            "description": "Lists all active customer accounts."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Customer Details & Addresses",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/crm/customers/{{createdCustomerId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "crm", "customers", "{{createdCustomerId}}"]
+            },
+            "description": "Retrieves customer profile with verified addresses."
+          },
+          "response": []
+        },
+        {
+          "name": "Add Secondary Site/Billing Address",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"address_type\": \"BILLING\",\n  \"address_line1\": \"401, Sun Central Tower, SG Highway\",\n  \"city\": \"Ahmedabad\",\n  \"state\": \"Gujarat\",\n  \"pincode\": \"380054\",\n  \"is_primary\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/crm/customers/{{createdCustomerId}}/addresses",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "crm", "customers", "{{createdCustomerId}}", "addresses"]
+            },
+            "description": "Adds another address for the customer (e.g. separate billing office)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Unified Customer Timeline",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/crm/customers/{{createdCustomerId}}/timeline",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "crm", "customers", "{{createdCustomerId}}", "timeline"]
+            },
+            "description": "Aggregates all leads, addresses, site surveys, and documents for a unified 360-degree customer view."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. Security & Negative Failure Tests",
+      "item": [
+        {
+          "name": "401 Unauthenticated (No Token)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/crm/leads",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "crm", "leads"]
+            },
+            "description": "Verifies that accessing protected CRM endpoints without a token returns 401 UNAUTHENTICATED."
+          },
+          "response": []
+        },
+        {
+          "name": "400 Invalid Stage Transition (NEW -> WON)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stage\": \"WON\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/crm/leads/{{createdLeadId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "crm", "leads", "{{createdLeadId}}"]
+            },
+            "description": "Verifies that invalid state machine progression is rejected with 400 INVALID_STAGE_TRANSITION."
+          },
+          "response": []
+        },
+        {
+          "name": "400 Missing Lost Reason on LOST",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"stage\": \"LOST\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/crm/leads/{{createdLeadId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "crm", "leads", "{{createdLeadId}}"]
+            },
+            "description": "Verifies that marking a lead as LOST without providing a lost_reason is rejected."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
