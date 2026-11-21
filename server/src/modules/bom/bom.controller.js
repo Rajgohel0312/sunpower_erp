@@ -50,5 +50,14 @@ export const bomController = {
     } catch (err) {
       next(err);
     }
+  },
+
+  async listBoms(req, res, next) {
+    try {
+      const boms = await bomService.listBoms(req.query);
+      return sendSuccess(res, boms);
+    } catch (err) {
+      next(err);
+    }
   }
 };

@@ -62,13 +62,19 @@ export const scheduleSurveySchema = z.object({
 // 2. Update Survey Rooftop Feasibility Specs
 export const updateSurveySpecsSchema = z.object({
   roof_type: roofTypeEnum.optional(),
-  shadow_free_area_sqft: z.coerce.number().min(0).optional(),
+  shadow_free_area_sqft: z.preprocess(
+    (v) => (v === null || v === '' || v === undefined ? null : Number(v)),
+    z.number().min(0).nullable().optional()
+  ),
   proposed_capacity_kw: z.coerce.number().positive().max(500).optional(),
   sanctioned_load_kw: z.coerce.number().positive().max(1000).optional(),
   supply_phase: supplyPhaseEnum.optional(),
   discom_provider: z.string().trim().max(100).optional(),
   consumer_number: z.string().trim().max(50).optional(),
-  distance_roof_to_meter_m: z.coerce.number().min(0).max(500).optional(),
+  distance_roof_to_meter_m: z.preprocess(
+    (v) => (v === null || v === '' || v === undefined ? null : Number(v)),
+    z.number().min(0).max(500).nullable().optional()
+  ),
   earthing_pits_needed: z.coerce.number().int().min(1).max(20).default(2),
   structure_type: structureTypeEnum.optional(),
   notes: z.string().trim().max(2000).optional()

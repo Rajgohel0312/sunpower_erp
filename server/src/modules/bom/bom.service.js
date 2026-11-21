@@ -188,5 +188,12 @@ export const bomService = {
       throw new AppError('Bill of Materials not found.', 404, 'BOM_NOT_FOUND');
     }
     return bomRepository.updateStatus(id, 'REJECTED', actor.id, reason);
+  },
+
+  /**
+   * Lists project BOMs
+   */
+  async listBoms(query = {}) {
+    return bomRepository.listBoms(query);
   }
 };

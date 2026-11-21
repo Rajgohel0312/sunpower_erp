@@ -13,7 +13,8 @@ description: Use when building or changing React/Vite/Tailwind code in the clien
 - One API client (`services/apiClient.js`): base URL from env, attaches in-memory access token, sends `credentials: 'include'`, adds request ID, single-flight token refresh on 401, normalizes errors to the API error shape, handles 429/network errors.
 - Server state via a data-fetching cache library (TanStack Query is a good fit; confirm with the owner) with query-key conventions per feature; client state stays local/small (context or Zustand only if needed).
 - Forms: React Hook Form + Zod (mirror backend schemas; backend is authoritative). Field-level server errors displayed.
-- Tables: server pagination, filtering, sorting, URL-synced filters, column visibility, CSV export via async job.
+- Tables & Lists: Always follow the `list-page-search-pagination` skill. Single-row search & dropdown filter bar (no cluttered tag pills). Real-time search inputs must use `useDebounce(..., 300)`. All tables must use `<Pagination />` (`client/src/components/common/Pagination.jsx`) and reset to page 1 on filter/search changes.
+- Button Throttling: All action triggers must use `<Button />` (`client/src/components/common/Button.jsx`) with built-in 400ms click throttling to prevent double-submissions and race conditions.
 - Every screen explicitly renders loading, empty, error and success states. Error boundary per route.
 - Permissions: `usePermission('module.resource.action')` hides actions; never the only guard.
 - Confirm dialogs for dispatch, stock adjustment, payment verification, approvals, irreversible transitions.

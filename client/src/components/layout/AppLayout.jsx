@@ -12,7 +12,8 @@ import {
   Calendar,
   ChevronRight,
   ClipboardCheck,
-  Package
+  Package,
+  ShoppingBag
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
 import Badge from '../common/Badge.jsx';
@@ -56,6 +57,18 @@ export function AppLayout() {
       label: 'Product Catalog',
       icon: Package,
       permission: 'catalog:read'
+    },
+    {
+      to: '/quotations',
+      label: 'Quotations & Pricing',
+      icon: FileText,
+      permission: 'quotations:read'
+    },
+    {
+      to: '/orders',
+      label: 'Sales Orders',
+      icon: ShoppingBag,
+      permission: 'orders:read'
     },
     {
       to: '/users',

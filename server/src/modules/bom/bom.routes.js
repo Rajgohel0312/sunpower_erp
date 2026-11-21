@@ -12,6 +12,12 @@ export const bomRouter = Router();
 
 bomRouter.use(authenticate);
 
+bomRouter.get(
+  '/',
+  requirePermission('bom:read'),
+  bomController.listBoms
+);
+
 bomRouter.post(
   '/generate/:surveyId',
   requirePermission('bom:manage'),

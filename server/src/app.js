@@ -18,6 +18,8 @@ import crmRouter from './modules/crm/crm.routes.js';
 import { catalogRouter } from './modules/catalog/catalog.routes.js';
 import { surveyRouter } from './modules/surveys/survey.routes.js';
 import { bomRouter } from './modules/bom/bom.routes.js';
+import { quotationRouter } from './modules/quotations/quotation.routes.js';
+import { orderRouter } from './modules/orders/order.routes.js';
 
 export const app = express();
 
@@ -71,6 +73,8 @@ apiV1.use('/crm', crmRouter);
 apiV1.use('/catalog', catalogRouter);
 apiV1.use('/surveys', surveyRouter);
 apiV1.use('/boms', bomRouter);
+apiV1.use('/quotations', quotationRouter);
+apiV1.use('/orders', orderRouter);
 apiV1.use('/', crmRouter);
 
 app.use('/api/v1', apiV1);

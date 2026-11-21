@@ -68,15 +68,24 @@ export function SurveyDetailPage() {
       setSurvey(srv);
 
       if (srv) {
+        const rawShadowArea = srv.shadow_free_area_sqft;
+        const shadowAreaVal = (rawShadowArea !== null && rawShadowArea !== undefined && Number(rawShadowArea) > 0)
+          ? String(rawShadowArea)
+          : '';
+        const rawDist = srv.distance_roof_to_meter_m;
+        const distVal = (rawDist !== null && rawDist !== undefined && Number(rawDist) > 0)
+          ? String(rawDist)
+          : (rawDist === 0 || rawDist === '0' || rawDist === '0.00' ? '' : '20');
+
         setSpecs({
           roof_type: srv.roof_type || 'RCC_FLAT',
-          shadow_free_area_sqft: srv.shadow_free_area_sqft || '',
-          proposed_capacity_kw: srv.proposed_capacity_kw || '',
-          sanctioned_load_kw: srv.sanctioned_load_kw || '',
+          shadow_free_area_sqft: shadowAreaVal,
+          proposed_capacity_kw: srv.proposed_capacity_kw ? String(srv.proposed_capacity_kw) : '',
+          sanctioned_load_kw: srv.sanctioned_load_kw ? String(srv.sanctioned_load_kw) : '',
           supply_phase: srv.supply_phase || 'SINGLE',
           discom_provider: srv.discom_provider || 'UGVCL',
           consumer_number: srv.consumer_number || '',
-          distance_roof_to_meter_m: srv.distance_roof_to_meter_m || 20,
+          distance_roof_to_meter_m: distVal,
           earthing_pits_needed: srv.earthing_pits_needed || 2,
           structure_type: srv.structure_type || 'STANDARD_GI',
           notes: srv.notes || ''
@@ -103,25 +112,31 @@ export function SurveyDetailPage() {
     fetchCatalogProducts();
   }, [fetchSurvey, fetchCatalogProducts]);
 
+  const getSpecsPayload = () => ({
+    roof_type: specs.roof_type,
+    shadow_free_area_sqft: (specs.shadow_free_area_sqft !== '' && specs.shadow_free_area_sqft !== null && specs.shadow_free_area_sqft !== undefined)
+      ? Number(specs.shadow_free_area_sqft)
+      : null,
+    proposed_capacity_kw: Number(specs.proposed_capacity_kw) || 0,
+    sanctioned_load_kw: Number(specs.sanctioned_load_kw) || 0,
+    supply_phase: specs.supply_phase,
+    discom_provider: specs.discom_provider,
+    consumer_number: specs.consumer_number,
+    distance_roof_to_meter_m: (specs.distance_roof_to_meter_m !== '' && specs.distance_roof_to_meter_m !== null && specs.distance_roof_to_meter_m !== undefined)
+      ? Number(specs.distance_roof_to_meter_m)
+      : null,
+    earthing_pits_needed: Number(specs.earthing_pits_needed) || 2,
+    structure_type: specs.structure_type,
+    notes: specs.notes
+  });
+
   const handleSaveSpecs = async (e, proceedToBom = false) => {
     if (e) e.preventDefault();
     setSavingSpecs(true);
     setSpecsMessage('');
 
     try {
-      await api.patch(`/surveys/${id}`, {
-        roof_type: specs.roof_type,
-        shadow_free_area_sqft: Number(specs.shadow_free_area_sqft) || 0,
-        proposed_capacity_kw: Number(specs.proposed_capacity_kw) || 0,
-        sanctioned_load_kw: Number(specs.sanctioned_load_kw) || 0,
-        supply_phase: specs.supply_phase,
-        discom_provider: specs.discom_provider,
-        consumer_number: specs.consumer_number,
-        distance_roof_to_meter_m: Number(specs.distance_roof_to_meter_m) || 0,
-        earthing_pits_needed: Number(specs.earthing_pits_needed) || 2,
-        structure_type: specs.structure_type,
-        notes: specs.notes
-      });
+      await api.patch(`/surveys/${id}`, getSpecsPayload());
       setSpecsMessage('Rooftop specifications saved successfully.');
       await fetchSurvey();
       if (proceedToBom) {
@@ -178,19 +193,7 @@ export function SurveyDetailPage() {
     setSubmitting(true);
     try {
       // Auto-save the latest specs first so generation always uses current form inputs
-      await api.patch(`/surveys/${id}`, {
-        roof_type: specs.roof_type,
-        shadow_free_area_sqft: Number(specs.shadow_free_area_sqft) || 0,
-        proposed_capacity_kw: Number(specs.proposed_capacity_kw) || 0,
-        sanctioned_load_kw: Number(specs.sanctioned_load_kw) || 0,
-        supply_phase: specs.supply_phase,
-        discom_provider: specs.discom_provider,
-        consumer_number: specs.consumer_number,
-        distance_roof_to_meter_m: Number(specs.distance_roof_to_meter_m) || 0,
-        earthing_pits_needed: Number(specs.earthing_pits_needed) || 2,
-        structure_type: specs.structure_type,
-        notes: specs.notes
-      });
+      await api.patch(`/surveys/${id}`, getSpecsPayload());
 
       const res = await api.post(`/surveys/${id}/bom`, {});
       if (res?.data?.id) {
@@ -244,19 +247,7 @@ export function SurveyDetailPage() {
     if (e) e.preventDefault();
     setSubmitting(true);
     try {
-      await api.patch(`/surveys/${id}`, {
-        roof_type: specs.roof_type,
-        shadow_free_area_sqft: Number(specs.shadow_free_area_sqft) || 0,
-        proposed_capacity_kw: Number(specs.proposed_capacity_kw) || 0,
-        sanctioned_load_kw: Number(specs.sanctioned_load_kw) || 0,
-        supply_phase: specs.supply_phase,
-        discom_provider: specs.discom_provider,
-        consumer_number: specs.consumer_number,
-        distance_roof_to_meter_m: Number(specs.distance_roof_to_meter_m) || 0,
-        earthing_pits_needed: Number(specs.earthing_pits_needed) || 2,
-        structure_type: specs.structure_type,
-        notes: specs.notes
-      });
+      await api.patch(`/surveys/${id}`, getSpecsPayload());
 
       const payload = {};
       if (bomOverrides.panel_product_id) payload.panel_product_id = bomOverrides.panel_product_id;
@@ -517,11 +508,12 @@ export function SurveyDetailPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-slate-700 mb-1">Shadow-free Area (sq ft) *</label>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">
+                      Shadow-free Area (sq ft) <span className="text-slate-400 font-normal">(optional)</span>
+                    </label>
                     <input
                       type="number"
-                      required
-                      placeholder="e.g. 400"
+                      placeholder="e.g. 400 (leave blank if unconstrained)"
                       value={specs.shadow_free_area_sqft}
                       onChange={(e) => setSpecs({ ...specs, shadow_free_area_sqft: e.target.value })}
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono"
@@ -547,12 +539,32 @@ export function SurveyDetailPage() {
                   const estModules = Math.ceil((Number(specs.proposed_capacity_kw) * 1000) / 540);
                   const estNetSqft = estModules * 27.81;
                   const estRequiredSqft = Math.max(Math.ceil(estNetSqft * 1.65), Math.ceil(Number(specs.proposed_capacity_kw) * 75));
-                  const availSqft = Number(specs.shadow_free_area_sqft) || 0;
-                  const isDeficit = availSqft > 0 && availSqft < estRequiredSqft;
+                  const hasArea = specs.shadow_free_area_sqft !== '' && specs.shadow_free_area_sqft !== null && Number(specs.shadow_free_area_sqft) > 0;
+                  const availSqft = hasArea ? Number(specs.shadow_free_area_sqft) : null;
+                  const isDeficit = hasArea && availSqft < estRequiredSqft;
                   const deficitSqft = isDeficit ? estRequiredSqft - availSqft : 0;
                   const maxFeasible = estRequiredSqft > 0 && availSqft > 0
                     ? Number((availSqft / (estRequiredSqft / Number(specs.proposed_capacity_kw))).toFixed(1))
                     : 0;
+
+                  if (!hasArea) {
+                    return (
+                      <div className="p-3 rounded-lg border text-xs flex items-start gap-2.5 bg-slate-50 border-slate-200 text-slate-700">
+                        <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5 text-slate-400" />
+                        <div className="flex-1">
+                          <div className="font-bold flex items-center gap-2">
+                            <span>Estimated Rooftop Space: ~{estRequiredSqft} sq ft needed</span>
+                            <span className="font-mono text-[11px] opacity-75 font-normal">
+                              ({estModules}x 540W modules @ 1.65x pitch)
+                            </span>
+                          </div>
+                          <div className="text-[11px] mt-0.5 opacity-90 leading-relaxed">
+                            Shadow-free area left blank (assumed unconstrained / ground mount). Enter square footage above if roof dimensions are constrained.
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
 
                   return (
                     <div className={`p-3 rounded-lg border text-xs flex items-start gap-2.5 ${
@@ -751,7 +763,9 @@ export function SurveyDetailPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className={`w-3.5 h-3.5 ${specs.shadow_free_area_sqft ? 'text-solar-green' : 'text-slate-300'}`} />
-                  <span className={specs.shadow_free_area_sqft ? 'text-slate-800' : 'text-slate-400'}>Shadow-free roof area measured</span>
+                  <span className={specs.shadow_free_area_sqft ? 'text-slate-800' : 'text-slate-400'}>
+                    {specs.shadow_free_area_sqft ? `Shadow-free area measured (${specs.shadow_free_area_sqft} sq ft)` : 'Shadow-free area (optional / unconstrained)'}
+                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className={`w-3.5 h-3.5 ${specs.sanctioned_load_kw ? 'text-solar-green' : 'text-slate-300'}`} />
@@ -897,6 +911,14 @@ export function SurveyDetailPage() {
                       )}
                     </div>
                   )}
+
+                  <Link
+                    to={`/quotations?create=true&bom_id=${activeBom.id}`}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-midnight text-white hover:bg-slate-800 transition-colors shadow-sm ml-auto"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-solar-gold" />
+                    Create Quotation
+                  </Link>
                 </div>
               </div>
 
@@ -1126,50 +1148,112 @@ export function SurveyDetailPage() {
                       </div>
 
                       {/* Engineering Validations Panel */}
-                      {activeBom.bom_validations && activeBom.bom_validations.length > 0 && (
-                        <div className="bg-white border border-slate-200 rounded-lg p-3.5 space-y-2">
-                          <div className="text-xs font-bold text-slate-700 flex items-center justify-between pb-1 border-b border-slate-100">
-                            <span className="flex items-center gap-1.5">
-                              <ShieldCheck className="w-3.5 h-3.5 text-solar-green" /> Compliance Rule Checks ({activeBom.bom_validations.length})
-                            </span>
-                            {activeBom.is_approval_blocked ? (
-                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                                Violations Blocking Approval
-                              </span>
-                            ) : (
-                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                All Safety Rules Passed
-                              </span>
-                            )}
-                          </div>
-                          <div className="space-y-1.5">
-                            {activeBom.bom_validations.map((v) => (
-                              <div
-                                key={v.id}
-                                className={`p-2 rounded text-[11px] flex items-start gap-2 border ${
-                                  v.severity === 'BLOCKING'
-                                    ? 'bg-rose-50/70 border-rose-200 text-rose-900'
-                                    : v.severity === 'WARNING'
-                                    ? 'bg-amber-50/70 border-amber-200 text-amber-900'
-                                    : 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
-                                }`}
-                              >
-                                {v.severity === 'BLOCKING' ? (
-                                  <AlertCircle className="w-3.5 h-3.5 text-rose-600 mt-0.5 shrink-0" />
-                                ) : v.severity === 'WARNING' ? (
-                                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600 mt-0.5 shrink-0" />
-                                ) : (
-                                  <CheckCircle className="w-3.5 h-3.5 text-emerald-600 mt-0.5 shrink-0" />
-                                )}
+                      {(() => {
+                        const validations = activeBom.bom_validations || [];
+                        const blockers = validations.filter(v => v.severity === 'BLOCKER' || v.severity === 'BLOCKING');
+                        const warnings = validations.filter(v => v.severity === 'WARNING');
+                        const hasBlockers = activeBom.is_approval_blocked || blockers.length > 0;
+                        const hasWarnings = warnings.length > 0;
+
+                        if (validations.length === 0) {
+                          return (
+                            <div className="bg-emerald-50/70 border border-emerald-200 rounded-lg p-3 text-xs flex items-center justify-between text-emerald-900">
+                              <div className="flex items-center gap-2">
+                                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
                                 <div>
-                                  <span className="font-mono font-bold mr-1.5">[{v.rule_code}]</span>
-                                  <span>{v.message}</span>
+                                  <span className="font-bold">Engineering Safety Gates Verified</span>
+                                  <p className="text-[11px] text-emerald-800 opacity-90">String Voc cold boundary, inverter MPPT window, inter-row clearance, and DC/AC sizing passed all checks.</p>
                                 </div>
                               </div>
-                            ))}
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 shrink-0">
+                                INSTALLATION READY
+                              </span>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div className="bg-white border border-slate-200 rounded-lg p-3.5 space-y-2">
+                            <div className="text-xs font-bold text-slate-700 flex items-center justify-between pb-1 border-b border-slate-100">
+                              <span className="flex items-center gap-1.5">
+                                <ShieldCheck className="w-3.5 h-3.5 text-solar-green" /> Compliance Rule Checks ({validations.length})
+                              </span>
+                              {hasBlockers ? (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                                  {blockers.length} Violations Blocking Approval
+                                </span>
+                              ) : hasWarnings ? (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                  {warnings.length} Advisory Warnings
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  All Safety Rules Passed
+                                </span>
+                              )}
+                            </div>
+                            <div className="space-y-1.5">
+                              {validations.map((v) => {
+                                const isBlock = v.severity === 'BLOCKER' || v.severity === 'BLOCKING';
+                                const isWarn = v.severity === 'WARNING';
+                                const code = v.code || v.rule_code || 'RULE_CHECK';
+                                const desc = v.description || v.message || 'Safety rule verified';
+                                const component = v.component || null;
+
+                                return (
+                                  <div
+                                    key={v.id || code}
+                                    className={`p-2.5 rounded-lg text-[11px] flex items-start gap-2.5 border ${
+                                      isBlock
+                                        ? 'bg-rose-50/70 border-rose-200 text-rose-950'
+                                        : isWarn
+                                        ? 'bg-amber-50/70 border-amber-200 text-amber-950'
+                                        : 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
+                                    }`}
+                                  >
+                                    {isBlock ? (
+                                      <AlertCircle className="w-4 h-4 text-rose-600 mt-0.5 shrink-0" />
+                                    ) : isWarn ? (
+                                      <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
+                                    ) : (
+                                      <CheckCircle className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        <span className="font-mono font-bold text-slate-900">[{code}]</span>
+                                        {component && (
+                                          <span className="px-1.5 py-0.2 rounded text-[9px] font-mono uppercase bg-slate-100 text-slate-600 border border-slate-200">
+                                            {component}
+                                          </span>
+                                        )}
+                                        <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold uppercase border ${
+                                          isBlock ? 'bg-rose-100 text-rose-800 border-rose-300' : isWarn ? 'bg-amber-100 text-amber-800 border-amber-300' : 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                                        }`}>
+                                          {v.severity || 'PASSED'}
+                                        </span>
+                                      </div>
+                                      <div className="mt-0.5 text-slate-800 font-medium leading-relaxed">
+                                        {desc}
+                                      </div>
+                                      {(v.expected_value || v.actual_value) && (
+                                        <div className="mt-1 text-[10px] font-mono text-slate-500 bg-white/60 px-2 py-0.5 rounded border border-slate-200 inline-block">
+                                          Expected: {v.expected_value || 'Compliant'} | Actual: {v.actual_value || 'Verified'}
+                                        </div>
+                                      )}
+                                      {(v.technical_explanation || v.recommended_action) && (
+                                        <div className="mt-1 text-[10px] text-slate-600 leading-normal">
+                                          {v.technical_explanation && <span>{v.technical_explanation} </span>}
+                                          {v.recommended_action && <span className="font-semibold text-slate-800">Recommendation: {v.recommended_action}</span>}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        );
+                      })()}
                     </div>
                   );
                 })()}

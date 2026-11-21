@@ -185,5 +185,47 @@ export const bomRepository = {
         updated_at: new Date()
       }
     });
+  },
+
+  /**
+   * Lists project BOMs with relations
+   */
+  async listBoms({ status, leadId, surveyId } = {}, tx = null) {
+    const client = tx || prisma;
+    const where = {};
+    if (status && status !== 'ALL') where.status = status;
+    if (leadId) where.lead_id = leadId;
+    if (surveyId) where.survey_id = surveyId;
+
+    return client.project_boms.findMany({
+      where,
+      orderBy: { created_at: 'desc' },
+      take: 100,
+      include: {
+        surveys: {
+          select: {
+            id: true,
+            survey_number: true,
+            status: true,
+            roof_type: true
+          }
+        },
+        leads: {
+          select: {
+            id: true,
+            lead_number: true,
+            full_name: true,
+            phone_e164: true
+          }
+        },
+        customers: {
+          select: {
+            id: true,
+            customer_code: true,
+            full_name: true
+          }
+        }
+      }
+    });
   }
 };

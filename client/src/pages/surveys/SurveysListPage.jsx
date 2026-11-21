@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   ClipboardCheck, Plus, Search, Calendar, User, 
@@ -10,6 +10,7 @@ import Button from '../../components/common/Button.jsx';
 import Badge from '../../components/common/Badge.jsx';
 import Modal from '../../components/common/Modal.jsx';
 import Pagination from '../../components/common/Pagination.jsx';
+import SearchableSelect from '../../components/common/SearchableSelect.jsx';
 
 const SURVEY_STATUSES = [
   'ALL',
@@ -54,6 +55,28 @@ export function SurveysListPage() {
     scheduled_at: '',
     notes: ''
   });
+
+  const leadOptions = useMemo(() => {
+    return leads.map((l) => ({
+      value: l.id,
+      label: l.full_name,
+      subtitle: `${l.phone_e164} • ${l.lead_number}${l.site_address ? ` • ${l.site_address}` : ''}`,
+      badge: l.stage,
+      badgeVariant: l.stage === 'QUALIFIED' ? 'success' : 'neutral',
+      searchTerms: `${l.full_name} ${l.phone_e164} ${l.lead_number} ${l.stage} ${l.site_address || ''}`
+    }));
+  }, [leads]);
+
+  const engineerOptions = useMemo(() => {
+    return engineers.map((u) => ({
+      value: u.id,
+      label: u.full_name,
+      subtitle: u.email || '',
+      badge: u.roles?.join(', ') || 'Staff',
+      badgeVariant: 'info',
+      searchTerms: `${u.full_name} ${u.email || ''} ${u.roles?.join(' ') || ''}`
+    }));
+  }, [engineers]);
 
   const fetchSurveys = useCallback(async () => {
     setLoading(true);
@@ -338,37 +361,29 @@ export function SurveysListPage() {
           )}
 
           <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">Select Lead / Prospect *</label>
-            <select
+            <SearchableSelect
               required
+              label="Select Lead / Prospect *"
+              options={leadOptions}
               value={formData.lead_id}
-              onChange={(e) => setFormData({ ...formData, lead_id: e.target.value })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
-            >
-              <option value="">Select a Lead...</option>
-              {leads.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.full_name} ({l.phone_e164}) — {l.lead_number} [{l.stage}]
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setFormData((prev) => ({ ...prev, lead_id: val }))}
+              placeholder="Search by name, phone, or lead number..."
+              searchPlaceholder="Filter leads by name, phone, lead ID, stage..."
+              emptyMessage="No matching leads found"
+            />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">Assign Survey Engineer *</label>
-            <select
+            <SearchableSelect
               required
+              label="Assign Survey Engineer *"
+              options={engineerOptions}
               value={formData.assigned_engineer_id}
-              onChange={(e) => setFormData({ ...formData, assigned_engineer_id: e.target.value })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
-            >
-              <option value="">Select Field Engineer...</option>
-              {engineers.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.full_name} ({u.roles?.join(', ') || 'Staff'})
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setFormData((prev) => ({ ...prev, assigned_engineer_id: val }))}
+              placeholder="Search field engineers..."
+              searchPlaceholder="Filter engineers by name or role..."
+              emptyMessage="No matching engineers found"
+            />
           </div>
 
           <div>

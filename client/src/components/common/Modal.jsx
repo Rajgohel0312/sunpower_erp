@@ -21,9 +21,9 @@ export function Modal({ isOpen, onClose, title, children, maxWidth = 'max-w-lg' 
       />
 
       <div className="flex min-h-full items-center justify-center p-4">
-        <div className={`relative w-full ${maxWidth} bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden transform transition-all`}>
+        <div className={`relative w-full ${maxWidth} max-h-[90vh] flex flex-col bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden transform transition-all`}>
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/50 shrink-0">
             <h3 className="text-base font-semibold text-midnight">{title}</h3>
             <button
               onClick={onClose}
@@ -34,7 +34,7 @@ export function Modal({ isOpen, onClose, title, children, maxWidth = 'max-w-lg' 
           </div>
 
           {/* Body */}
-          <div className="p-6">{children}</div>
+          <div className="p-6 overflow-y-auto flex-1">{children}</div>
         </div>
       </div>
     </div>

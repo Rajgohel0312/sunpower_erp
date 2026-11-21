@@ -92,12 +92,18 @@ model customers {
   users              users?               @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   leads              leads[]
   project_boms       project_boms[]
+  quotations         quotations[]
+  sales_orders       sales_orders[]
   surveys            surveys[]
 
   @@index([customer_code], map: "idx_customers_code")
   @@index([created_at(sort: Desc)], map: "idx_customers_created_at")
   @@index([phone_e164], map: "idx_customers_phone")
   @@index([customer_type, created_at(sort: Desc)], map: "idx_customers_type_created")
+  @@index([customer_code(ops: raw("gin_trgm_ops"))], map: "idx_customers_code_trgm", type: Gin)
+  @@index([full_name(ops: raw("gin_trgm_ops"))], map: "idx_customers_full_name_trgm", type: Gin)
+  @@index([gstin(ops: raw("gin_trgm_ops"))], map: "idx_customers_gstin_trgm", type: Gin)
+  @@index([phone_e164(ops: raw("gin_trgm_ops"))], map: "idx_customers_phone_trgm", type: Gin)
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -193,6 +199,8 @@ model leads {
   users_leads_created_byTousers  users?            @relation("leads_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
   customers                      customers?        @relation(fields: [customer_id], references: [id], onUpdate: NoAction)
   project_boms                   project_boms[]
+  quotations                     quotations[]
+  sales_orders                   sales_orders[]
   surveys                        surveys[]
 
   @@index([assigned_to], map: "idx_leads_assigned_to")
@@ -201,6 +209,10 @@ model leads {
   @@index([phone_e164], map: "idx_leads_phone")
   @@index([stage], map: "idx_leads_stage")
   @@index([stage, created_at(sort: Desc)], map: "idx_leads_stage_created")
+  @@index([full_name(ops: raw("gin_trgm_ops"))], map: "idx_leads_full_name_trgm", type: Gin)
+  @@index([lead_number(ops: raw("gin_trgm_ops"))], map: "idx_leads_lead_number_trgm", type: Gin)
+  @@index([phone_e164(ops: raw("gin_trgm_ops"))], map: "idx_leads_phone_trgm", type: Gin)
+  @@index([site_address(ops: raw("gin_trgm_ops"))], map: "idx_leads_site_address_trgm", type: Gin)
 }
 
 model login_events {
@@ -319,7 +331,10 @@ model users {
   product_prices                               product_prices[]
   project_boms_project_boms_approved_byTousers project_boms[]       @relation("project_boms_approved_byTousers")
   project_boms_project_boms_created_byTousers  project_boms[]       @relation("project_boms_created_byTousers")
+  quotations_quotations_approved_byTousers     quotations[]         @relation("quotations_approved_byTousers")
+  quotations_quotations_created_byTousers      quotations[]         @relation("quotations_created_byTousers")
   refresh_tokens                               refresh_tokens[]
+  sales_orders                                 sales_orders[]
   surveys_surveys_assigned_engineer_idTousers  surveys[]            @relation("surveys_assigned_engineer_idTousers")
   surveys_surveys_created_byTousers            surveys[]            @relation("surveys_created_byTousers")
   surveys_surveys_reviewed_byTousers           surveys[]            @relation("surveys_reviewed_byTousers")
@@ -362,10 +377,14 @@ model products {
   product_specifications product_specifications?
   product_categories     product_categories      @relation(fields: [category_id], references: [id], onUpdate: NoAction)
   project_bom_items      project_bom_items[]
+  quotation_items        quotation_items[]
 
   @@index([brand], map: "idx_products_brand")
   @@index([category_id], map: "idx_products_category")
   @@index([sku], map: "idx_products_sku")
+  @@index([brand(ops: raw("gin_trgm_ops"))], map: "idx_products_brand_trgm", type: Gin)
+  @@index([model_name(ops: raw("gin_trgm_ops"))], map: "idx_products_model_name_trgm", type: Gin)
+  @@index([sku(ops: raw("gin_trgm_ops"))], map: "idx_products_sku_trgm", type: Gin)
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -412,6 +431,8 @@ model project_boms {
   customers                             customers?          @relation(fields: [customer_id], references: [id], onUpdate: NoAction)
   leads                                 leads?              @relation(fields: [lead_id], references: [id], onUpdate: NoAction)
   surveys                               surveys?            @relation(fields: [survey_id], references: [id], onUpdate: NoAction)
+  quotations                            quotations[]
+  sales_orders                          sales_orders[]
 
   @@index([lead_id], map: "idx_boms_lead")
   @@index([status], map: "idx_boms_status")
@@ -464,6 +485,8 @@ model surveys {
   updated_at                                DateTime        @default(now()) @db.Timestamptz(6)
   deleted_at                                DateTime?       @db.Timestamptz(6)
   project_boms                              project_boms[]
+  quotations                                quotations[]
+  sales_orders                              sales_orders[]
   survey_photos                             survey_photos[]
   users_surveys_assigned_engineer_idTousers users?          @relation("surveys_assigned_engineer_idTousers", fields: [assigned_engineer_id], references: [id], onUpdate: NoAction)
   users_surveys_created_byTousers           users?          @relation("surveys_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction)
@@ -477,6 +500,9 @@ model surveys {
   @@index([lead_id], map: "idx_surveys_lead")
   @@index([status], map: "idx_surveys_status")
   @@index([status, scheduled_at(sort: Desc)], map: "idx_surveys_status_scheduled")
+  @@index([consumer_number(ops: raw("gin_trgm_ops"))], map: "idx_surveys_consumer_number_trgm", type: Gin)
+  @@index([discom_provider(ops: raw("gin_trgm_ops"))], map: "idx_surveys_discom_trgm", type: Gin)
+  @@index([survey_number(ops: raw("gin_trgm_ops"))], map: "idx_surveys_survey_number_trgm", type: Gin)
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -577,4 +603,121 @@ model product_specifications {
 
   @@index([category_code], map: "idx_prod_specs_category")
   @@index([product_id], map: "idx_prod_specs_product")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model quotation_items {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quotation_id String     @db.Uuid
+  product_id   String?    @db.Uuid
+  item_type    String     @default("HARDWARE") @db.VarChar(50)
+  item_name    String     @db.VarChar(255)
+  description  String?
+  quantity     Decimal    @db.Decimal(10, 2)
+  unit_code    String     @default("NOS") @db.VarChar(20)
+  unit_price   Decimal    @default(0.00) @db.Decimal(14, 2)
+  tax_rate_pct Decimal    @default(12.00) @db.Decimal(5, 2)
+  tax_amount   Decimal    @default(0.00) @db.Decimal(14, 2)
+  total_price  Decimal    @default(0.00) @db.Decimal(14, 2)
+  is_optional  Boolean    @default(false)
+  sort_order   Int        @default(0)
+  created_at   DateTime   @default(now()) @db.Timestamptz(6)
+  products     products?  @relation(fields: [product_id], references: [id], onUpdate: NoAction)
+  quotations   quotations @relation(fields: [quotation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([product_id], map: "idx_quotation_items_product")
+  @@index([quotation_id], map: "idx_quotation_items_quotation")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model quotations {
+  id                                  String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quotation_number                    String            @unique @db.VarChar(50)
+  lead_id                             String?           @db.Uuid
+  customer_id                         String?           @db.Uuid
+  survey_id                           String?           @db.Uuid
+  bom_id                              String?           @db.Uuid
+  version                             Int               @default(1)
+  system_capacity_kw                  Decimal           @db.Decimal(10, 2)
+  hardware_subtotal                   Decimal           @default(0.00) @db.Decimal(14, 2)
+  installation_charges                Decimal           @default(0.00) @db.Decimal(14, 2)
+  transport_charges                   Decimal           @default(0.00) @db.Decimal(14, 2)
+  subtotal                            Decimal           @default(0.00) @db.Decimal(14, 2)
+  discount_amount                     Decimal           @default(0.00) @db.Decimal(14, 2)
+  taxable_amount                      Decimal           @default(0.00) @db.Decimal(14, 2)
+  tax_goods_amount                    Decimal           @default(0.00) @db.Decimal(14, 2)
+  tax_services_amount                 Decimal           @default(0.00) @db.Decimal(14, 2)
+  tax_total                           Decimal           @default(0.00) @db.Decimal(14, 2)
+  grand_total                         Decimal           @default(0.00) @db.Decimal(14, 2)
+  subsidy_amount                      Decimal           @default(0.00) @db.Decimal(14, 2)
+  net_payable                         Decimal           @default(0.00) @db.Decimal(14, 2)
+  payment_terms                       Json              @default("[]")
+  commercial_terms                    String?
+  valid_until                         DateTime          @db.Date
+  status                              String            @default("DRAFT") @db.VarChar(50)
+  rejection_reason                    String?
+  snapshot_data                       Json?
+  created_by                          String?           @db.Uuid
+  approved_by                         String?           @db.Uuid
+  approved_at                         DateTime?         @db.Timestamptz(6)
+  sent_at                             DateTime?         @db.Timestamptz(6)
+  accepted_at                         DateTime?         @db.Timestamptz(6)
+  created_at                          DateTime          @default(now()) @db.Timestamptz(6)
+  updated_at                          DateTime          @default(now()) @db.Timestamptz(6)
+  deleted_at                          DateTime?         @db.Timestamptz(6)
+  quotation_items                     quotation_items[]
+  users_quotations_approved_byTousers users?            @relation("quotations_approved_byTousers", fields: [approved_by], references: [id], onUpdate: NoAction)
+  project_boms                        project_boms?     @relation(fields: [bom_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  users_quotations_created_byTousers  users?            @relation("quotations_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction)
+  customers                           customers?        @relation(fields: [customer_id], references: [id], onUpdate: NoAction)
+  leads                               leads?            @relation(fields: [lead_id], references: [id], onUpdate: NoAction)
+  surveys                             surveys?          @relation(fields: [survey_id], references: [id], onUpdate: NoAction)
+  sales_orders                        sales_orders[]
+
+  @@index([bom_id], map: "idx_quotations_bom")
+  @@index([created_at(sort: Desc)], map: "idx_quotations_created_at")
+  @@index([customer_id], map: "idx_quotations_customer")
+  @@index([lead_id], map: "idx_quotations_lead")
+  @@index([quotation_number], map: "idx_quotations_number")
+  @@index([status], map: "idx_quotations_status")
+  @@index([survey_id], map: "idx_quotations_survey")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model sales_orders {
+  id                       String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  order_number             String        @unique @db.VarChar(50)
+  quotation_id             String        @db.Uuid
+  customer_id              String        @db.Uuid
+  lead_id                  String?       @db.Uuid
+  survey_id                String?       @db.Uuid
+  bom_id                   String?       @db.Uuid
+  system_capacity_kw       Decimal       @db.Decimal(10, 2)
+  total_amount             Decimal       @db.Decimal(14, 2)
+  subsidy_amount           Decimal       @default(0.00) @db.Decimal(14, 2)
+  net_customer_payable     Decimal       @db.Decimal(14, 2)
+  advance_payment_received Decimal       @default(0.00) @db.Decimal(14, 2)
+  payment_status           String        @default("PENDING") @db.VarChar(50)
+  status                   String        @default("CONFIRMED") @db.VarChar(50)
+  snapshot_data            Json
+  confirmed_by             String?       @db.Uuid
+  confirmed_at             DateTime      @default(now()) @db.Timestamptz(6)
+  installation_target_date DateTime?     @db.Date
+  notes                    String?
+  created_at               DateTime      @default(now()) @db.Timestamptz(6)
+  updated_at               DateTime      @default(now()) @db.Timestamptz(6)
+  deleted_at               DateTime?     @db.Timestamptz(6)
+  project_boms             project_boms? @relation(fields: [bom_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  users                    users?        @relation(fields: [confirmed_by], references: [id], onUpdate: NoAction)
+  customers                customers     @relation(fields: [customer_id], references: [id], onUpdate: NoAction)
+  leads                    leads?        @relation(fields: [lead_id], references: [id], onUpdate: NoAction)
+  quotations               quotations    @relation(fields: [quotation_id], references: [id], onUpdate: NoAction)
+  surveys                  surveys?      @relation(fields: [survey_id], references: [id], onUpdate: NoAction)
+
+  @@index([created_at(sort: Desc)], map: "idx_sales_orders_created_at")
+  @@index([customer_id], map: "idx_sales_orders_customer")
+  @@index([lead_id], map: "idx_sales_orders_lead")
+  @@index([order_number], map: "idx_sales_orders_number")
+  @@index([quotation_id], map: "idx_sales_orders_quotation")
+  @@index([status], map: "idx_sales_orders_status")
 }
