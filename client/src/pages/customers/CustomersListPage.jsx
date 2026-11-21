@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Users, Plus, Search, Building, Phone, ChevronRight, Filter, X } from 'lucide-react';
 import { api } from '../../api/client.js';
+import { useDebounce } from '../../hooks/useDebounce.js';
 import Button from '../../components/common/Button.jsx';
 import Badge from '../../components/common/Badge.jsx';
 import Modal from '../../components/common/Modal.jsx';
@@ -9,7 +10,8 @@ import Modal from '../../components/common/Modal.jsx';
 export function CustomersListPage() {
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const debouncedSearch = useDebounce(searchInput, 300);
   const [typeFilter, setTypeFilter] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
 
@@ -29,12 +31,12 @@ export function CustomersListPage() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
 
-  const fetchCustomers = useCallback(async (searchQuery = search, type = typeFilter) => {
+  const fetchCustomers = useCallback(async () => {
     setLoading(true);
     try {
       const query = { limit: 50 };
-      if (searchQuery && searchQuery.trim()) query.search = searchQuery.trim();
-      if (type) query.customer_type = type;
+      if (debouncedSearch && debouncedSearch.trim()) query.search = debouncedSearch.trim();
+      if (typeFilter) query.customer_type = typeFilter;
 
       const res = await api.get('/crm/customers', query);
       setCustomers(res?.data || []);
@@ -43,14 +45,11 @@ export function CustomersListPage() {
     } finally {
       setLoading(false);
     }
-  }, [search, typeFilter]);
+  }, [debouncedSearch, typeFilter]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchCustomers(search, typeFilter);
-    }, 250);
-    return () => clearTimeout(timer);
-  }, [search, typeFilter, fetchCustomers]);
+    fetchCustomers();
+  }, [fetchCustomers]);
 
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
@@ -101,14 +100,14 @@ export function CustomersListPage() {
           <input
             type="text"
             placeholder="Search by customer name, phone, code (CUST-2026-...), or GSTIN..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
             className="w-full pl-9 pr-10 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-midnight"
           />
-          {search && (
+          {searchInput && (
             <button
               type="button"
-              onClick={() => setSearch('')}
+              onClick={() => setSearchInput('')}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
             >
               <X className="w-4 h-4" />

@@ -15,6 +15,11 @@ export const surveyService = {
    * Schedule a new rooftop site survey for a lead or customer
    */
   async scheduleSurvey(input, actor) {
+    // 0. Defense-in-depth: Validate scheduled date is not in the past
+    if (new Date(input.scheduled_at).getTime() < Date.now() - 5 * 60 * 1000) {
+      throw new AppError('Scheduled date and time cannot be in the past. Please select today or a future date.', 400, 'PAST_DATE_NOT_ALLOWED');
+    }
+
     // 1. Validate assigned engineer
     const engineer = await userRepository.findById(input.assigned_engineer_id);
     if (!engineer || !engineer.is_active) {

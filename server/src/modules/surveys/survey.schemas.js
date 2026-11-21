@@ -45,7 +45,14 @@ export const scheduleSurveySchema = z.object({
   lead_id: z.string().uuid().optional().nullable(),
   customer_id: z.string().uuid().optional().nullable(),
   assigned_engineer_id: z.string().uuid('assigned_engineer_id must be a valid user UUID'),
-  scheduled_at: z.string().datetime({ message: 'scheduled_at must be an ISO 8601 timestamp' }),
+  scheduled_at: z.string().datetime({ message: 'scheduled_at must be an ISO 8601 timestamp' })
+    .refine((val) => {
+      const scheduledDate = new Date(val);
+      // Allow up to 5 minutes grace window for clock drift / request transit
+      return !isNaN(scheduledDate.getTime()) && scheduledDate.getTime() >= Date.now() - 5 * 60 * 1000;
+    }, {
+      message: 'Scheduled date and time cannot be in the past. Please select today or a future date.'
+    }),
   notes: z.string().trim().max(1000).optional()
 }).refine(data => data.lead_id || data.customer_id, {
   message: 'Survey must be linked to either a lead_id or customer_id',

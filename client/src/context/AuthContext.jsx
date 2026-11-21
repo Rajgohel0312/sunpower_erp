@@ -14,14 +14,38 @@ export function AuthProvider({ children }) {
 
   const checkAuth = useCallback(async () => {
     try {
+      // 1. First attempt to load profile via /auth/me
       const res = await api.get('/auth/me');
+      if (res?.data?.accessToken) {
+        setAccessToken(res.data.accessToken);
+      }
       if (res?.data?.user) {
         setUser(res.data.user);
-      } else {
-        setUser(null);
+        return;
       }
     } catch (err) {
-      setUser(null);
+      // 2. If /auth/me fails (e.g. 401 on expired access token during reload),
+      // seamlessly attempt silent refresh using the 7-day HttpOnly refresh token cookie!
+      try {
+        const refreshRes = await api.post('/auth/refresh', {});
+        if (refreshRes?.data?.accessToken) {
+          setAccessToken(refreshRes.data.accessToken);
+        }
+        if (refreshRes?.data?.user) {
+          setUser(refreshRes.data.user);
+          return;
+        } else {
+          // Fallback if user profile wasn't in refresh response
+          const retryRes = await api.get('/auth/me');
+          if (retryRes?.data?.user) {
+            setUser(retryRes.data.user);
+            return;
+          }
+        }
+      } catch (refreshErr) {
+        setUser(null);
+        setAccessToken(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -30,6 +54,37 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     checkAuth();
   }, [checkAuth]);
+
+  // Listen for terminal session expiration from the API client
+  useEffect(() => {
+    const handleAuthExpired = () => {
+      setUser(null);
+      setAccessToken(null);
+    };
+    window.addEventListener('sunpower:auth:expired', handleAuthExpired);
+    return () => window.removeEventListener('sunpower:auth:expired', handleAuthExpired);
+  }, []);
+
+  // Heartbeat: silently refresh access token every 10 minutes while active in browser
+  useEffect(() => {
+    if (!user) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await api.post('/auth/refresh', {});
+        if (res?.data?.accessToken) {
+          setAccessToken(res.data.accessToken);
+        }
+        if (res?.data?.user) {
+          setUser(res.data.user);
+        }
+      } catch (err) {
+        // If background refresh fails, request-level 401 interceptor will handle next action
+      }
+    }, 10 * 60 * 1000); // 10 minutes
+
+    return () => clearInterval(interval);
+  }, [user]);
 
   const login = async (email, password) => {
     setError(null);

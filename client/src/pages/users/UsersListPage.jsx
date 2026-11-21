@@ -4,6 +4,7 @@ import {
   CheckCircle, XCircle, KeyRound, Filter, X
 } from 'lucide-react';
 import { api } from '../../api/client';
+import { useDebounce } from '../../hooks/useDebounce';
 import { Badge } from '../../components/common/Badge';
 import { Button } from '../../components/common/Button';
 import { Modal } from '../../components/common/Modal';
@@ -23,7 +24,8 @@ export const UsersListPage = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const debouncedSearch = useDebounce(searchInput, 300);
   const [roleFilter, setRoleFilter] = useState('');
 
   // Create User Modal state
@@ -38,13 +40,13 @@ export const UsersListPage = () => {
     role_codes: ['SALES_REP']
   });
 
-  const fetchUsers = useCallback(async (searchQuery = search, role = roleFilter) => {
+  const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
       const params = {};
-      if (searchQuery && searchQuery.trim()) params.search = searchQuery.trim();
-      if (role) params.role = role;
+      if (debouncedSearch && debouncedSearch.trim()) params.search = debouncedSearch.trim();
+      if (roleFilter) params.role = roleFilter;
 
       const res = await api.get('/users', { params });
       setUsers(res.data || []);
@@ -53,24 +55,19 @@ export const UsersListPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [search, roleFilter]);
+  }, [debouncedSearch, roleFilter]);
 
-  // Debounced search & filter listener
   useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchUsers(search, roleFilter);
-    }, 250);
-    return () => clearTimeout(timer);
-  }, [search, roleFilter, fetchUsers]);
+    fetchUsers();
+  }, [fetchUsers]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    fetchUsers(search, roleFilter);
+    fetchUsers();
   };
 
   const handleClearSearch = () => {
-    setSearch('');
-    fetchUsers('', roleFilter);
+    setSearchInput('');
   };
 
   const handleRoleToggle = (code) => {
@@ -149,11 +146,11 @@ export const UsersListPage = () => {
           <input
             type="text"
             placeholder="Search by name, email, or phone..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
             className="w-full text-sm pl-10 pr-10 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-solar-gold outline-none"
           />
-          {search && (
+          {searchInput && (
             <button
               type="button"
               onClick={handleClearSearch}

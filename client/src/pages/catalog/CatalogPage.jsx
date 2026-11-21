@@ -4,6 +4,7 @@ import {
   X, Tag, Shield, Cpu, Layers
 } from 'lucide-react';
 import { api } from '../../api/client.js';
+import { useDebounce } from '../../hooks/useDebounce.js';
 import Button from '../../components/common/Button.jsx';
 import Badge from '../../components/common/Badge.jsx';
 import Modal from '../../components/common/Modal.jsx';
@@ -12,7 +13,8 @@ export function CatalogPage() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const debouncedSearch = useDebounce(searchInput, 300);
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -31,12 +33,12 @@ export function CatalogPage() {
     is_serial_tracked: false
   });
 
-  const fetchData = useCallback(async (catCode = selectedCategory, searchQuery = search) => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const query = { limit: 100 };
-      if (catCode !== 'ALL') query.category_code = catCode;
-      if (searchQuery && searchQuery.trim()) query.search = searchQuery.trim();
+      if (selectedCategory !== 'ALL') query.category_code = selectedCategory;
+      if (debouncedSearch && debouncedSearch.trim()) query.search = debouncedSearch.trim();
 
       const [prodsRes, catsRes] = await Promise.all([
         api.get('/catalog/products', query),
@@ -50,14 +52,11 @@ export function CatalogPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedCategory, search]);
+  }, [selectedCategory, debouncedSearch]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchData(selectedCategory, search);
-    }, 250);
-    return () => clearTimeout(timer);
-  }, [selectedCategory, search, fetchData]);
+    fetchData();
+  }, [fetchData]);
 
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
@@ -112,54 +111,45 @@ export function CatalogPage() {
         </Button>
       </div>
 
-      {/* Filter Tabs & Search Bar */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm space-y-4">
-        {/* Category Filter Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
-          <button
-            onClick={() => setSelectedCategory('ALL')}
-            className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-colors ${
-              selectedCategory === 'ALL'
-                ? 'bg-midnight text-white font-semibold'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            All Components
-          </button>
-          {categories.map((c) => (
-            <button
-              key={c.code}
-              onClick={() => setSelectedCategory(c.code)}
-              className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-colors ${
-                selectedCategory === c.code
-                  ? 'bg-midnight text-white font-semibold'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              {c.name}
-            </button>
-          ))}
-        </div>
-
+      {/* Search & Category Filter Bar */}
+      <div className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-sm flex flex-col sm:flex-row gap-3 items-center justify-between">
         {/* Search Input */}
-        <div className="relative">
-          <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+        <div className="relative flex-1 w-full">
+          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
             placeholder="Search catalog by SKU, brand name (e.g. Waaree, Growatt, Polycab), or model..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-10 py-2 border border-slate-200 rounded-lg text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-midnight"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            className="w-full pl-9 pr-10 py-2 border border-slate-200 rounded-lg text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-midnight bg-slate-50/50 focus:bg-white transition-colors"
           />
-          {search && (
+          {searchInput && (
             <button
               type="button"
-              onClick={() => setSearch('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+              onClick={() => setSearchInput('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-100 transition-colors"
+              title="Clear search"
             >
               <X className="w-4 h-4" />
             </button>
           )}
+        </div>
+
+        {/* Category Dropdown */}
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <Filter className="w-4 h-4 text-slate-400 shrink-0" />
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            className="text-sm px-3 py-2 border border-slate-200 rounded-lg font-medium text-slate-700 focus:ring-2 focus:ring-midnight outline-none bg-white w-full sm:w-auto cursor-pointer"
+          >
+            <option value="ALL">All Component Categories</option>
+            {categories.map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.name}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 

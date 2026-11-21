@@ -1,6 +1,7 @@
 /**
  * Centralized API Client for SunPower ERP
- * Supports credentials (HttpOnly cookies), JSON envelope unwrapping, and request correlation.
+ * Supports credentials (HttpOnly cookies), JSON envelope unwrapping,
+ * request correlation, and transparent 401 token refresh queue.
  */
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
@@ -26,7 +27,25 @@ export function getAccessToken() {
   return inMemoryAccessToken;
 }
 
-export async function apiRequest(endpoint, options = {}) {
+// Single-flight refresh mutex to prevent concurrent refresh token revocation race conditions
+let isRefreshing = false;
+let refreshSubscribers = [];
+
+function subscribeTokenRefresh(cb) {
+  refreshSubscribers.push(cb);
+}
+
+function onRefreshed(token) {
+  refreshSubscribers.forEach((cb) => cb(token, null));
+  refreshSubscribers = [];
+}
+
+function onRefreshFailed(err) {
+  refreshSubscribers.forEach((cb) => cb(null, err));
+  refreshSubscribers = [];
+}
+
+export async function apiRequest(endpoint, options = {}, isRetry = false) {
   const url = endpoint.startsWith('http') ? endpoint : `${BASE_URL}${endpoint}`;
 
   const headers = {
@@ -54,6 +73,73 @@ export async function apiRequest(endpoint, options = {}) {
     const contentType = res.headers.get('content-type') || '';
     const isJson = contentType.includes('application/json');
     const data = isJson ? await res.json() : null;
+
+    // Handle 401 Unauthorized with silent refresh
+    const isAuthEndpoint = endpoint.includes('/auth/login') ||
+                           endpoint.includes('/auth/refresh') ||
+                           endpoint.includes('/auth/logout');
+
+    if (res.status === 401 && !isRetry && !isAuthEndpoint) {
+      if (isRefreshing) {
+        // Another refresh is already underway; queue this request
+        return new Promise((resolve, reject) => {
+          subscribeTokenRefresh((newToken, refreshErr) => {
+            if (refreshErr || !newToken) {
+              reject(refreshErr || new ApiError('Session expired. Please log in again.', 401, 'UNAUTHENTICATED'));
+            } else {
+              // Retry with new in-memory token
+              const retryHeaders = { ...headers, Authorization: `Bearer ${newToken}` };
+              resolve(apiRequest(endpoint, { ...options, headers: retryHeaders }, true));
+            }
+          });
+        });
+      }
+
+      isRefreshing = true;
+
+      try {
+        const refreshRes = await fetch(`${BASE_URL}/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({})
+        });
+
+        const refreshData = await refreshRes.json().catch(() => null);
+
+        if (!refreshRes.ok || !refreshData?.data?.accessToken) {
+          const err = new ApiError(
+            refreshData?.error?.message || 'Session expired. Please log in again.',
+            401,
+            refreshData?.error?.code || 'SESSION_EXPIRED'
+          );
+          setAccessToken(null);
+          isRefreshing = false;
+          onRefreshFailed(err);
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('sunpower:auth:expired'));
+          }
+          throw err;
+        }
+
+        const newAccessToken = refreshData.data.accessToken;
+        setAccessToken(newAccessToken);
+        isRefreshing = false;
+        onRefreshed(newAccessToken);
+
+        // Retry original request with newly issued token
+        const retryHeaders = { ...headers, Authorization: `Bearer ${newAccessToken}` };
+        return apiRequest(endpoint, { ...options, headers: retryHeaders }, true);
+      } catch (refreshErr) {
+        setAccessToken(null);
+        isRefreshing = false;
+        onRefreshFailed(refreshErr);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('sunpower:auth:expired'));
+        }
+        throw refreshErr;
+      }
+    }
 
     if (!res.ok) {
       const errPayload = data?.error || {};

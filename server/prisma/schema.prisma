@@ -97,6 +97,7 @@ model customers {
   @@index([customer_code], map: "idx_customers_code")
   @@index([created_at(sort: Desc)], map: "idx_customers_created_at")
   @@index([phone_e164], map: "idx_customers_phone")
+  @@index([customer_type, created_at(sort: Desc)], map: "idx_customers_type_created")
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -199,6 +200,7 @@ model leads {
   @@index([customer_id], map: "idx_leads_customer_id")
   @@index([phone_e164], map: "idx_leads_phone")
   @@index([stage], map: "idx_leads_stage")
+  @@index([stage, created_at(sort: Desc)], map: "idx_leads_stage_created")
 }
 
 model login_events {
@@ -413,6 +415,7 @@ model project_boms {
 
   @@index([lead_id], map: "idx_boms_lead")
   @@index([status], map: "idx_boms_status")
+  @@index([status, created_at(sort: Desc)], map: "idx_project_boms_status_created")
   @@index([survey_id], map: "idx_boms_survey")
 }
 
@@ -473,6 +476,7 @@ model surveys {
   @@index([assigned_engineer_id], map: "idx_surveys_engineer")
   @@index([lead_id], map: "idx_surveys_lead")
   @@index([status], map: "idx_surveys_status")
+  @@index([status, scheduled_at(sort: Desc)], map: "idx_surveys_status_scheduled")
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.

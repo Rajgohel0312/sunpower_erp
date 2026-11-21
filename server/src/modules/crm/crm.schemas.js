@@ -138,7 +138,14 @@ export const createActivitySchema = z.object({
 
 // 6. Follow-up Schema
 export const createFollowUpSchema = z.object({
-  scheduled_at: z.string().datetime({ message: 'scheduled_at must be an ISO 8601 timestamp' }),
+  scheduled_at: z.string().datetime({ message: 'scheduled_at must be an ISO 8601 timestamp' })
+    .refine((val) => {
+      const scheduledDate = new Date(val);
+      // Allow up to 5 minutes grace window for clock drift / request transit
+      return !isNaN(scheduledDate.getTime()) && scheduledDate.getTime() >= Date.now() - 5 * 60 * 1000;
+    }, {
+      message: 'Follow-up date and time cannot be in the past. Please select today or a future date.'
+    }),
   assigned_to: z.string().uuid().optional().nullable(),
   notes: z.string().trim().max(1000).optional()
 });

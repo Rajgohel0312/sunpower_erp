@@ -112,15 +112,23 @@ export const crmService = {
       throw new AppError('Lead not found.', 404, 'LEAD_NOT_FOUND');
     }
 
-    const [activities, followUps] = await Promise.all([
+    const [activities, followUps, surveys] = await Promise.all([
       crmRepository.listActivitiesByLead(id),
-      crmRepository.listFollowUpsByLead(id)
+      crmRepository.listFollowUpsByLead(id),
+      crmRepository.listSurveysByLead(id)
     ]);
 
     return {
       ...lead,
       activities,
-      follow_ups: followUps
+      follow_ups: followUps,
+      surveys: (surveys || []).map(s => ({
+        ...s,
+        assigned_engineer_name: s.users_surveys_assigned_engineer_idTousers?.full_name || null,
+        assigned_engineer_email: s.users_surveys_assigned_engineer_idTousers?.email || null,
+        photos_count: s._count?.survey_photos || 0,
+        boms_count: s._count?.project_boms || 0
+      }))
     };
   },
 
@@ -316,6 +324,10 @@ export const crmService = {
    * Schedule a follow-up for a lead
    */
   async createFollowUp(leadId, input, actor) {
+    if (new Date(input.scheduled_at).getTime() < Date.now() - 5 * 60 * 1000) {
+      throw new AppError('Follow-up scheduled date and time cannot be in the past. Please select today or a future date.', 400, 'PAST_DATE_NOT_ALLOWED');
+    }
+
     const lead = await crmRepository.findLeadById(leadId);
     if (!lead) {
       throw new AppError('Lead not found.', 404, 'LEAD_NOT_FOUND');

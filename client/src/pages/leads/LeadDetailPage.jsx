@@ -18,12 +18,24 @@ import {
   AlertCircle,
   XCircle,
   Plus,
-  ClipboardCheck
+  ClipboardCheck,
+  ChevronRight
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import Button from '../../components/common/Button.jsx';
 import Badge from '../../components/common/Badge.jsx';
 import Modal from '../../components/common/Modal.jsx';
+
+const getMinDateTimeLocal = () => {
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  const year = now.getFullYear();
+  const month = pad(now.getMonth() + 1);
+  const day = pad(now.getDate());
+  const hours = pad(now.getHours());
+  const minutes = pad(now.getMinutes());
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
 
 export function LeadDetailPage() {
   const { id } = useParams();
@@ -230,6 +242,12 @@ export function LeadDetailPage() {
 
   const handleCreateFollowUp = async (e) => {
     e.preventDefault();
+
+    if (new Date(followUpData.scheduled_at).getTime() < Date.now() - 5 * 60 * 1000) {
+      alert('Follow-up scheduled date and time cannot be in the past. Please select today or a future date.');
+      return;
+    }
+
     setSubmitting(true);
     try {
       await api.post(`/crm/leads/${id}/follow-ups`, {
@@ -267,6 +285,12 @@ export function LeadDetailPage() {
 
   const handleScheduleSurvey = async (e) => {
     e.preventDefault();
+
+    if (new Date(surveyFormData.scheduled_at).getTime() < Date.now() - 5 * 60 * 1000) {
+      alert('Survey scheduled date and time cannot be in the past. Please select today or a future date.');
+      return;
+    }
+
     setSubmitting(true);
     try {
       await api.post('/surveys', {
@@ -326,17 +350,17 @@ export function LeadDetailPage() {
               Mark Qualified
             </Button>
           )}
-          {lead.stage === 'QUALIFIED' && (
+          {/* Survey Actions */}
+          {lead.surveys && lead.surveys.length > 0 ? (
+            <Link to={`/surveys/${lead.surveys[0].id}`}>
+              <Button variant="accent" size="sm" icon={ClipboardCheck}>
+                Open Survey ({lead.surveys[0].survey_number})
+              </Button>
+            </Link>
+          ) : (
             <Button variant="accent" size="sm" icon={ClipboardCheck} onClick={handleOpenSurveyModal}>
               Schedule Site Survey
             </Button>
-          )}
-          {(lead.stage === 'SURVEY_SCHEDULED' || lead.stage === 'SURVEY_APPROVED') && (
-            <Link to={`/surveys?search=${encodeURIComponent(lead.lead_number)}`}>
-              <Button variant="outline" size="sm" icon={ClipboardCheck}>
-                View Site Survey
-              </Button>
-            </Link>
           )}
 
           {/* Convert to Customer Button */}
@@ -450,8 +474,104 @@ export function LeadDetailPage() {
           </div>
         </div>
 
-        {/* Right Column: Activity Stream & Timeline */}
+        {/* Right Column: Site Surveys & Activity Stream */}
         <div className="lg:col-span-2 space-y-6">
+          {/* Site Surveys & Technical Engineering Section */}
+          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <ClipboardCheck className="w-5 h-5 text-solar-gold" />
+                <h3 className="text-sm font-bold text-midnight">Site Surveys & Rooftop Engineering</h3>
+                {lead.surveys && lead.surveys.length > 0 && (
+                  <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
+                    {lead.surveys.length}
+                  </span>
+                )}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                icon={Plus}
+                onClick={handleOpenSurveyModal}
+                className="text-xs"
+              >
+                Schedule Survey
+              </Button>
+            </div>
+
+            {(!lead.surveys || lead.surveys.length === 0) ? (
+              <div className="py-6 text-center text-slate-400 text-xs space-y-2">
+                <p>No site surveys scheduled yet for this lead.</p>
+                <Button variant="accent" size="sm" icon={Calendar} onClick={handleOpenSurveyModal}>
+                  Schedule First Site Survey
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {lead.surveys.map((survey) => (
+                  <div
+                    key={survey.id}
+                    className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-slate-50 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                  >
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-2.5">
+                        <span className="font-mono font-bold text-sm text-midnight">{survey.survey_number}</span>
+                        <Badge variant={survey.status}>{survey.status}</Badge>
+                      </div>
+
+                      <div className="text-xs text-slate-600 flex flex-wrap items-center gap-x-4 gap-y-1">
+                        <span>
+                          📅 <strong>Scheduled:</strong> {new Date(survey.scheduled_at).toLocaleString('en-IN', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                        {survey.assigned_engineer_name && (
+                          <span>
+                            👷 <strong>Engineer:</strong> {survey.assigned_engineer_name}
+                          </span>
+                        )}
+                        {survey.roof_type && (
+                          <span>
+                            🏠 <strong>Roof:</strong> {survey.roof_type.replace(/_/g, ' ')}
+                          </span>
+                        )}
+                        {survey.proposed_capacity_kw && (
+                          <span>
+                            ⚡ <strong>Capacity:</strong> {survey.proposed_capacity_kw} kW
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-3 text-[11px] text-slate-500 font-mono pt-0.5">
+                        <span>📷 {survey.photos_count || 0} Photos</span>
+                        <span>•</span>
+                        <span>📋 {survey.boms_count || 0} BOMs</span>
+                        {survey.reviewed_at && (
+                          <>
+                            <span>•</span>
+                            <span className="text-emerald-700 font-sans font-semibold">✓ Feasibility Reviewed</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center sm:self-center">
+                      <Link to={`/surveys/${survey.id}`}>
+                        <Button variant="primary" size="sm" icon={ChevronRight} className="font-semibold text-xs whitespace-nowrap">
+                          Open Survey & BOM Details
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
             <div className="flex items-center justify-between pb-4 border-b border-slate-100">
               <div className="flex items-center gap-2">
@@ -555,6 +675,7 @@ export function LeadDetailPage() {
             <input
               type="datetime-local"
               required
+              min={getMinDateTimeLocal()}
               value={followUpData.scheduled_at}
               onChange={(e) => setFollowUpData({ ...followUpData, scheduled_at: e.target.value })}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono"
@@ -643,6 +764,7 @@ export function LeadDetailPage() {
             <input
               type="datetime-local"
               required
+              min={getMinDateTimeLocal()}
               value={surveyFormData.scheduled_at}
               onChange={(e) => setSurveyFormData({ ...surveyFormData, scheduled_at: e.target.value })}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono"

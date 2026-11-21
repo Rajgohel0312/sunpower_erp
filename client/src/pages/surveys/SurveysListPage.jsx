@@ -2,9 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   ClipboardCheck, Plus, Search, Calendar, User, 
-  ChevronRight, MapPin, Zap, CheckCircle2, AlertCircle, X
+  ChevronRight, MapPin, Zap, CheckCircle2, AlertCircle, X, Filter
 } from 'lucide-react';
 import { api } from '../../api/client.js';
+import { useDebounce } from '../../hooks/useDebounce.js';
 import Button from '../../components/common/Button.jsx';
 import Badge from '../../components/common/Badge.jsx';
 import Modal from '../../components/common/Modal.jsx';
@@ -18,12 +19,24 @@ const SURVEY_STATUSES = [
   'REVISION_REQUIRED'
 ];
 
+const getMinDateTimeLocal = () => {
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  const year = now.getFullYear();
+  const month = pad(now.getMonth() + 1);
+  const day = pad(now.getDate());
+  const hours = pad(now.getHours());
+  const minutes = pad(now.getMinutes());
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
 export function SurveysListPage() {
   const [surveys, setSurveys] = useState([]);
   const [engineers, setEngineers] = useState([]);
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const debouncedSearch = useDebounce(searchInput, 300);
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -36,12 +49,12 @@ export function SurveysListPage() {
     notes: ''
   });
 
-  const fetchSurveys = useCallback(async (status = statusFilter, searchQuery = search) => {
+  const fetchSurveys = useCallback(async () => {
     setLoading(true);
     try {
       const query = { limit: 50 };
-      if (status !== 'ALL') query.status = status;
-      if (searchQuery && searchQuery.trim()) query.search = searchQuery.trim();
+      if (statusFilter !== 'ALL') query.status = statusFilter;
+      if (debouncedSearch && debouncedSearch.trim()) query.search = debouncedSearch.trim();
 
       const res = await api.get('/surveys', query);
       setSurveys(res?.data || []);
@@ -50,14 +63,11 @@ export function SurveysListPage() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, search]);
+  }, [statusFilter, debouncedSearch]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchSurveys(statusFilter, search);
-    }, 250);
-    return () => clearTimeout(timer);
-  }, [statusFilter, search, fetchSurveys]);
+    fetchSurveys();
+  }, [fetchSurveys]);
 
   // Load leads and engineers for modal
   const handleOpenScheduleModal = async () => {
@@ -77,8 +87,14 @@ export function SurveysListPage() {
 
   const handleScheduleSubmit = async (e) => {
     e.preventDefault();
-    setSubmitting(true);
     setFormError('');
+
+    if (new Date(formData.scheduled_at).getTime() < Date.now() - 5 * 60 * 1000) {
+      setFormError('Survey scheduled date and time cannot be in the past. Please select today or a future date.');
+      return;
+    }
+
+    setSubmitting(true);
 
     try {
       await api.post('/surveys', {
@@ -136,44 +152,45 @@ export function SurveysListPage() {
         </Button>
       </div>
 
-      {/* Filter Tabs & Search Bar */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm space-y-4">
-        {/* Status Filter Tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
-          {SURVEY_STATUSES.map((st) => (
-            <button
-              key={st}
-              onClick={() => setStatusFilter(st)}
-              className={`px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-colors ${
-                statusFilter === st
-                  ? 'bg-midnight text-white font-semibold'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              {st.replace(/_/g, ' ')}
-            </button>
-          ))}
-        </div>
-
+      {/* Search & Status Filter Bar */}
+      <div className="bg-white rounded-xl border border-slate-200 p-3.5 shadow-sm flex flex-col sm:flex-row gap-3 items-center justify-between">
         {/* Search Input */}
-        <div className="relative">
-          <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+        <div className="relative flex-1 w-full">
+          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
             placeholder="Search surveys by survey number (SRV-2026-...), customer name, or phone (+91)..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-10 py-2 border border-slate-200 rounded-lg text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-midnight"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            className="w-full pl-9 pr-10 py-2 border border-slate-200 rounded-lg text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-midnight bg-slate-50/50 focus:bg-white transition-colors"
           />
-          {search && (
+          {searchInput && (
             <button
               type="button"
-              onClick={() => setSearch('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+              onClick={() => setSearchInput('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-100 transition-colors"
+              title="Clear search"
             >
               <X className="w-4 h-4" />
             </button>
           )}
+        </div>
+
+        {/* Status Dropdown */}
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <Filter className="w-4 h-4 text-slate-400 shrink-0" />
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="text-sm px-3 py-2 border border-slate-200 rounded-lg font-medium text-slate-700 focus:ring-2 focus:ring-midnight outline-none bg-white w-full sm:w-auto cursor-pointer"
+          >
+            <option value="ALL">All Survey Statuses</option>
+            <option value="SCHEDULED">Scheduled</option>
+            <option value="IN_PROGRESS">In Progress</option>
+            <option value="SUBMITTED">Submitted for Review</option>
+            <option value="APPROVED">Approved</option>
+            <option value="REVISION_REQUIRED">Revision Required</option>
+          </select>
         </div>
       </div>
 
@@ -320,6 +337,7 @@ export function SurveysListPage() {
             <input
               type="datetime-local"
               required
+              min={getMinDateTimeLocal()}
               value={formData.scheduled_at}
               onChange={(e) => setFormData({ ...formData, scheduled_at: e.target.value })}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono"

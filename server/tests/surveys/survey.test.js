@@ -22,6 +22,29 @@ describe('Phase 4 — Rooftop Site Survey Zod Boundaries', () => {
     assert.equal(invalid.success, false);
   });
 
+  it('scheduleSurveySchema rejects past scheduled_at dates', () => {
+    const pastDate = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const res = scheduleSurveySchema.safeParse({
+      lead_id: 'a0000000-0000-0000-0000-000000000001',
+      assigned_engineer_id: 'b0000000-0000-0000-0000-000000000002',
+      scheduled_at: pastDate
+    });
+    assert.equal(res.success, false);
+    const issue = res.error.issues.find(i => i.path.includes('scheduled_at'));
+    assert.ok(issue);
+    assert.match(issue.message, /cannot be in the past/i);
+  });
+
+  it('scheduleSurveySchema accepts future scheduled_at dates', () => {
+    const futureDate = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+    const res = scheduleSurveySchema.safeParse({
+      lead_id: 'a0000000-0000-0000-0000-000000000001',
+      assigned_engineer_id: 'b0000000-0000-0000-0000-000000000002',
+      scheduled_at: futureDate
+    });
+    assert.equal(res.success, true);
+  });
+
   it('updateSurveySpecsSchema validates roof_type and numeric parameters', () => {
     const valid = updateSurveySpecsSchema.safeParse({
       roof_type: 'RCC_FLAT',
@@ -103,6 +126,21 @@ describe('Phase 4 — Survey Execution & Engineering BOM Workflow', () => {
     const activities = updatedLead.activities;
     const surveyActivity = activities.find(a => a.activity_type === 'STAGE_CHANGE' && a.details?.action === 'SURVEY_SCHEDULED');
     assert.ok(surveyActivity, 'Activity should log survey scheduling');
+  });
+
+  it('rejects survey scheduling with a past date at service layer', async () => {
+    await assert.rejects(
+      () => surveyService.scheduleSurvey({
+        lead_id: testLead.id,
+        assigned_engineer_id: adminUser.id,
+        scheduled_at: new Date(Date.now() - 2 * 86400000).toISOString()
+      }, adminUser),
+      (err) => {
+        assert.equal(err.statusCode, 400);
+        assert.equal(err.code, 'PAST_DATE_NOT_ALLOWED');
+        return true;
+      }
+    );
   });
 
   it('records rooftop technical specifications and advances status to IN_PROGRESS', async () => {

@@ -275,6 +275,26 @@ export const crmRepository = {
   },
 
   // ---------------------------------------------------------------------------
+  // SURVEYS LINKED TO LEAD
+  // ---------------------------------------------------------------------------
+
+  async listSurveysByLead(leadId, tx = null) {
+    const client = tx || prisma;
+    return client.surveys.findMany({
+      where: { lead_id: leadId },
+      include: {
+        users_surveys_assigned_engineer_idTousers: {
+          select: { id: true, full_name: true, email: true }
+        },
+        _count: {
+          select: { survey_photos: true, project_boms: true }
+        }
+      },
+      orderBy: { scheduled_at: 'desc' }
+    });
+  },
+
+  // ---------------------------------------------------------------------------
   // CUSTOMERS
   // ---------------------------------------------------------------------------
 

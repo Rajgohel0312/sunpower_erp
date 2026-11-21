@@ -83,7 +83,8 @@ export const authController = {
         tokens: {
           accessToken: result.accessToken,
           refreshToken: result.refreshToken
-        }
+        },
+        user: result.user
       }, { message: 'Token refreshed' });
     } catch (err) {
       next(err);
@@ -115,7 +116,8 @@ export const authController = {
   async me(req, res, next) {
     try {
       return sendSuccess(res, {
-        user: req.user
+        user: req.user,
+        accessToken: req.token || null
       });
     } catch (err) {
       next(err);

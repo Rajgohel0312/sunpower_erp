@@ -12,7 +12,8 @@ import {
   createLeadSchema,
   updateLeadSchema,
   createCustomerSchema,
-  createCustomerAddressSchema
+  createCustomerAddressSchema,
+  createFollowUpSchema
 } from '../../src/modules/crm/crm.schemas.js';
 import { crmService } from '../../src/modules/crm/crm.service.js';
 import { requirePermission } from '../../src/middleware/rbac.js';
@@ -133,6 +134,23 @@ describe('Phase 3 — Zod Schema Boundaries for CRM', () => {
     assert.equal(parsed.gstin, '24AAAAA0000A1Z5');
     assert.equal(parsed.address.city, 'Vadodara');
     assert.equal(parsed.address.is_primary, true);
+  });
+
+  test('createFollowUpSchema rejects past scheduled_at dates and accepts future dates', () => {
+    const pastDate = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const invalid = createFollowUpSchema.safeParse({
+      scheduled_at: pastDate,
+      notes: 'Past reminder'
+    });
+    assert.equal(invalid.success, false);
+    assert.match(invalid.error.issues[0].message, /cannot be in the past/i);
+
+    const futureDate = new Date(Date.now() + 3600 * 1000).toISOString();
+    const valid = createFollowUpSchema.safeParse({
+      scheduled_at: futureDate,
+      notes: 'Future reminder'
+    });
+    assert.equal(valid.success, true);
   });
 });
 
@@ -274,5 +292,19 @@ describe('Phase 3 — Deny-by-Default RBAC Guardrails for CRM', () => {
     let createErr = null;
     requirePermission('leads:create')(req, {}, (err) => { createErr = err; });
     assert.equal(createErr, undefined);
+  });
+
+  test('crmService.createFollowUp rejects past scheduled date with PAST_DATE_NOT_ALLOWED', async () => {
+    await assert.rejects(
+      () => crmService.createFollowUp('a0000000-0000-0000-0000-000000000001', {
+        scheduled_at: new Date(Date.now() - 86400000).toISOString(),
+        notes: 'Follow up from yesterday'
+      }, { id: 'u1' }),
+      (err) => {
+        assert.equal(err.statusCode, 400);
+        assert.equal(err.code, 'PAST_DATE_NOT_ALLOWED');
+        return true;
+      }
+    );
   });
 });

@@ -193,7 +193,15 @@ export const authService = {
 
       return {
         accessToken: newAccessToken,
-        refreshToken: newRawRefreshToken
+        refreshToken: newRawRefreshToken,
+        user: {
+          id: user.id,
+          email: user.email,
+          fullName: user.full_name,
+          phone: user.phone_e164,
+          roles,
+          permissions
+        }
       };
     });
   },
