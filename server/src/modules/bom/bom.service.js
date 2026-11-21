@@ -10,7 +10,7 @@ import { bomGenerator } from './bom.generator.js';
 import { bomPricing } from './bom.pricing.js';
 import { bomValidator } from './bom.validator.js';
 import { surveyRepository } from '../surveys/survey.repository.js';
-import { withTransaction } from '../../database/index.js';
+import { prisma, withTransaction } from '../../database/index.js';
 import { AppError } from '../../utils/response.js';
 
 export const bomService = {
@@ -30,8 +30,24 @@ export const bomService = {
       throw new AppError('Survey does not have a valid proposed_capacity_kw to size BOM.', 400, 'CAPACITY_REQUIRED');
     }
 
+    // 0. Resolve reference specs from chosen override panel (if any)
+    let refSpecs = { ...(input.reference_specs || {}) };
+    if (input.panel_product_id && !refSpecs.moduleWattageW) {
+      const selectedPanel = await prisma.products.findUnique({
+        where: { id: input.panel_product_id },
+        include: { product_specifications: true }
+      });
+      if (selectedPanel) {
+        refSpecs.moduleWattageW = Number(selectedPanel.product_specifications?.rated_power_w || selectedPanel.rated_capacity_w || 540);
+        if (selectedPanel.product_specifications?.voc_v) refSpecs.moduleVoc = Number(selectedPanel.product_specifications.voc_v);
+        if (selectedPanel.product_specifications?.vmp_v) refSpecs.moduleVmp = Number(selectedPanel.product_specifications.vmp_v);
+        if (selectedPanel.product_specifications?.isc_a) refSpecs.moduleIsc = Number(selectedPanel.product_specifications.isc_a);
+        if (selectedPanel.product_specifications?.imp_a) refSpecs.moduleImp = Number(selectedPanel.product_specifications.imp_a);
+      }
+    }
+
     // 1. TIER A: Pure Engineering Requirements Generation
-    const requirements = engineeringService.generateRequirements(survey, input.reference_specs || {});
+    const requirements = engineeringService.generateRequirements(survey, refSpecs);
 
     // 2. TIER B: Product Mapping & Technical Compatibility Check
     const mappingResults = await productMappingService.mapRequirements(requirements, input);
@@ -171,6 +187,6 @@ export const bomService = {
     if (!bom) {
       throw new AppError('Bill of Materials not found.', 404, 'BOM_NOT_FOUND');
     }
-    return bomRepository.updateStatus(id, 'REJECTED', actor.id);
+    return bomRepository.updateStatus(id, 'REJECTED', actor.id, reason);
   }
 };

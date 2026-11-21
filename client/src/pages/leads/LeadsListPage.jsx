@@ -10,8 +10,7 @@ import {
   AlertTriangle,
   ChevronRight,
   Zap,
-  Building,
-  X
+  Building
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import Button from '../../components/common/Button.jsx';
@@ -57,7 +56,7 @@ export function LeadsListPage() {
   const [formError, setFormError] = useState('');
   const [duplicateWarning, setDuplicateWarning] = useState(null);
 
-  const fetchLeads = useCallback(async (stage = selectedStage, searchQuery = search) => {
+  const fetchLeads = useCallback(async () => {
     setLoading(true);
     try {
       const query = {
@@ -65,8 +64,8 @@ export function LeadsListPage() {
         sort_by: 'created_at',
         sort_order: 'DESC'
       };
-      if (stage !== 'ALL') query.stage = stage;
-      if (searchQuery && searchQuery.trim()) query.search = searchQuery.trim();
+      if (selectedStage !== 'ALL') query.stage = selectedStage;
+      if (search.trim()) query.search = search.trim();
 
       const res = await api.get('/crm/leads', query);
       setLeads(res?.data || []);
@@ -78,11 +77,8 @@ export function LeadsListPage() {
   }, [selectedStage, search]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchLeads(selectedStage, search);
-    }, 250);
-    return () => clearTimeout(timer);
-  }, [selectedStage, search, fetchLeads]);
+    fetchLeads();
+  }, [fetchLeads]);
 
   // Live duplicate check on phone input
   const handlePhoneBlur = async () => {
@@ -184,17 +180,8 @@ export function LeadsListPage() {
             placeholder="Search leads by customer name, phone number (+91), or lead number (LEAD-2026-...)..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-10 py-2 border border-slate-200 rounded-lg text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-midnight"
+            className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-midnight"
           />
-          {search && (
-            <button
-              type="button"
-              onClick={() => setSearch('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
         </div>
       </div>
 

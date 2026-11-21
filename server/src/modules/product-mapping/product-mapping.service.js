@@ -113,38 +113,46 @@ export const productMappingService = {
     }
 
     // 4. DC Cable
+    const dcCableOverride = overrides.dc_cable_product_id || overrides.dcCableSku;
     const dcCableCandidates = byCategory.CABLE.filter(p => p.sku.includes('DC') || p.product_specifications?.is_uv_resistant);
     const dcCableResult = productSelectorService.selectProduct(
       dcCableCandidates.length > 0 ? dcCableCandidates : byCategory.CABLE,
       requirements,
-      'CABLE_DC'
+      'CABLE_DC',
+      dcCableOverride
     );
     mapping.dcCable = dcCableResult;
 
     // 5. AC Armored Cable
+    const acCableOverride = overrides.ac_cable_product_id || overrides.acCableSku;
     const acCableCandidates = byCategory.CABLE.filter(p => p.sku.includes('AC') || p.product_specifications?.is_armored);
     const acCableResult = productSelectorService.selectProduct(
       acCableCandidates.length > 0 ? acCableCandidates : byCategory.CABLE,
       requirements,
-      'CABLE_AC'
+      'CABLE_AC',
+      acCableOverride
     );
     mapping.acCable = acCableResult;
 
     // 6. AC Distribution Box (ACDB)
+    const acdbOverride = overrides.acdb_product_id || overrides.acdbSku;
     const acdbCandidates = byCategory.ACDB_DCDB.filter(p => p.sku.includes('ACDB'));
     const acdbResult = productSelectorService.selectProduct(
       acdbCandidates,
       requirements,
-      'ACDB'
+      'ACDB',
+      acdbOverride
     );
     mapping.acdb = acdbResult;
 
     // 7. DC Distribution Box (DCDB)
+    const dcdbOverride = overrides.dcdb_product_id || overrides.dcdbSku;
     const dcdbCandidates = byCategory.ACDB_DCDB.filter(p => p.sku.includes('DCDB'));
     const dcdbResult = productSelectorService.selectProduct(
       dcdbCandidates,
       requirements,
-      'DCDB'
+      'DCDB',
+      dcdbOverride
     );
     mapping.dcdb = dcdbResult;
 

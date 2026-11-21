@@ -380,4 +380,78 @@ describe('Dynamic Engineering BOM Generation Engine 2.0 — Scenarios A through 
       }
     );
   });
+
+  // SCENARIO K: Manual Brand Customization & Component Overrides
+  it('Scenario K: supports manual brand customization/overrides (Adani panel, Solis inverter, custom cable meters)', async () => {
+    const survey = await surveyService.scheduleSurvey({
+      lead_id: testLead.id,
+      assigned_engineer_id: adminUser.id,
+      scheduled_at: new Date().toISOString()
+    }, adminUser);
+
+    await surveyService.updateSurveySpecs(survey.id, {
+      roof_type: 'RCC_FLAT',
+      shadow_free_area_sqft: 600,
+      proposed_capacity_kw: 5.0,
+      sanctioned_load_kw: 6.0,
+      supply_phase: 'SINGLE',
+      distance_roof_to_meter_m: 20
+    }, adminUser);
+
+    const adaniPanel = await catalogRepository.findProductBySku('PNL-ADANI-545W');
+    const solisInverter = await catalogRepository.findProductBySku('INV-SOLIS-5KW-1P');
+
+    // Generate BOM with explicit brand overrides and custom cable lengths
+    const customBom = await bomService.generateBom(survey.id, {
+      panel_product_id: adaniPanel.id,
+      inverter_product_id: solisInverter.id,
+      dc_cable_meters: 65,
+      ac_cable_meters: 40
+    }, adminUser);
+
+    assert.ok(customBom.id);
+    assert.equal(customBom.is_approval_blocked, false);
+    assert.equal(customBom.generation_mode, 'INSTALLATION_READY');
+
+    // Verify chosen products are in the line items
+    const panelItem = customBom.project_bom_items.find(i => i.product_id === adaniPanel.id);
+    assert.ok(panelItem, 'BOM must contain the overridden Adani Solar panel');
+    assert.equal(Number(panelItem.unit_cost), 11800);
+
+    const inverterItem = customBom.project_bom_items.find(i => i.product_id === solisInverter.id);
+    assert.ok(inverterItem, 'BOM must contain the overridden Solis inverter');
+    assert.equal(Number(inverterItem.unit_cost), 39000);
+
+    // Verify custom cable lengths
+    const dcItem = customBom.project_bom_items.find(i => i.products?.sku?.includes('DC'));
+    assert.equal(Number(dcItem.quantity), 65, 'DC cable quantity must reflect manual override meters');
+
+    const acItem = customBom.project_bom_items.find(i => i.products?.sku?.includes('AC'));
+    assert.equal(Number(acItem.quantity), 40, 'AC cable quantity must reflect manual override meters');
+  });
+
+  // SCENARIO L: Rejecting BOM sets status REJECTED and records rejection reason
+  it('Scenario L: allows rejecting a BOM revision and records status REJECTED with rejection_reason', async () => {
+    const survey = await surveyService.scheduleSurvey({
+      lead_id: testLead.id,
+      assigned_engineer_id: adminUser.id,
+      scheduled_at: new Date().toISOString()
+    }, adminUser);
+
+    await surveyService.updateSurveySpecs(survey.id, {
+      roof_type: 'RCC_FLAT',
+      shadow_free_area_sqft: 600,
+      proposed_capacity_kw: 5.0,
+      sanctioned_load_kw: 6.0,
+      supply_phase: 'SINGLE',
+      distance_roof_to_meter_m: 20
+    }, adminUser);
+
+    const bom = await bomService.generateBom(survey.id, {}, adminUser);
+    assert.equal(bom.status, 'DRAFT');
+
+    const rejected = await bomService.rejectBom(bom.id, 'Customer requested redesign with elevated structure', adminUser);
+    assert.equal(rejected.status, 'REJECTED');
+    assert.equal(rejected.rejection_reason, 'Customer requested redesign with elevated structure');
+  });
 });

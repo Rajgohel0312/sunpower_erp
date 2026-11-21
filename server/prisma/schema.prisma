@@ -402,6 +402,7 @@ model project_boms {
   generation_mode                       String              @default("PRELIMINARY") @db.VarChar(50)
   is_approval_blocked                   Boolean             @default(false)
   engineering_snapshot                  Json                @default("{}")
+  rejection_reason                      String?
   bom_validations                       bom_validations[]
   project_bom_items                     project_bom_items[]
   users_project_boms_approved_byTousers users?              @relation("project_boms_approved_byTousers", fields: [approved_by], references: [id], onUpdate: NoAction)

@@ -5,7 +5,7 @@ import {
   Calendar, Zap, CheckCircle2, AlertTriangle, FileText, 
   Camera, Image, Plus, Check, RefreshCw, Send, Layers, Box,
   Sparkles, ShieldCheck, Cpu, XCircle, AlertCircle, Info, Lock,
-  CheckCircle, ArrowRight
+  CheckCircle, ArrowRight, SlidersHorizontal
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import Button from '../../components/common/Button.jsx';
@@ -21,11 +21,23 @@ export function SurveyDetailPage() {
   // Modals & Submitting
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
-  const [showBomModal, setShowBomModal] = useState(false);
+  const [showCustomizeModal, setShowCustomizeModal] = useState(false);
   const [selectedBomId, setSelectedBomId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [reviewData, setReviewData] = useState({ decision: 'APPROVED', comments: '' });
   const [photoData, setPhotoData] = useState({ photo_category: 'ROOF_PANORAMA', file_url: '', caption: '' });
+
+  // Catalog Products for Overrides
+  const [catalogProducts, setCatalogProducts] = useState([]);
+  const [bomOverrides, setBomOverrides] = useState({
+    panel_product_id: '',
+    inverter_product_id: '',
+    structure_product_id: '',
+    dc_cable_product_id: '',
+    ac_cable_product_id: '',
+    dc_cable_meters: '',
+    ac_cable_meters: ''
+  });
 
   // Specs Form
   const [specs, setSpecs] = useState({
@@ -73,9 +85,19 @@ export function SurveyDetailPage() {
     }
   }, [id]);
 
+  const fetchCatalogProducts = useCallback(async () => {
+    try {
+      const res = await api.get('/catalog/products', { limit: 100, is_active: true });
+      setCatalogProducts(res?.data || []);
+    } catch (err) {
+      console.error('Failed to load catalog products for customization:', err);
+    }
+  }, []);
+
   useEffect(() => {
     fetchSurvey();
-  }, [fetchSurvey]);
+    fetchCatalogProducts();
+  }, [fetchSurvey, fetchCatalogProducts]);
 
   const handleSaveSpecs = async (e) => {
     e.preventDefault();
@@ -177,6 +199,82 @@ export function SurveyDetailPage() {
     }
   };
 
+  const handleOpenCustomizeModal = () => {
+    if (activeBom?.project_bom_items) {
+      const panelItem = activeBom.project_bom_items.find(i => i.products?.product_categories?.code === 'PANEL' || i.products?.sku?.startsWith('PNL'));
+      const invItem = activeBom.project_bom_items.find(i => i.products?.product_categories?.code === 'INVERTER' || i.products?.sku?.startsWith('INV'));
+      const structItem = activeBom.project_bom_items.find(i => i.products?.product_categories?.code === 'STRUCTURE' || i.products?.sku?.startsWith('STR'));
+      const dcItem = activeBom.project_bom_items.find(i => i.products?.sku?.includes('DC') && (i.products?.product_categories?.code === 'CABLE' || i.products?.sku?.startsWith('CBL')));
+      const acItem = activeBom.project_bom_items.find(i => i.products?.sku?.includes('AC') && (i.products?.product_categories?.code === 'CABLE' || i.products?.sku?.startsWith('CBL')));
+
+      setBomOverrides({
+        panel_product_id: panelItem?.product_id || '',
+        inverter_product_id: invItem?.product_id || '',
+        structure_product_id: structItem?.product_id || '',
+        dc_cable_product_id: dcItem?.product_id || '',
+        ac_cable_product_id: acItem?.product_id || '',
+        dc_cable_meters: dcItem?.quantity || '',
+        ac_cable_meters: acItem?.quantity || ''
+      });
+    }
+    setShowCustomizeModal(true);
+  };
+
+  const handleResetOverrides = () => {
+    setBomOverrides({
+      panel_product_id: '',
+      inverter_product_id: '',
+      structure_product_id: '',
+      dc_cable_product_id: '',
+      ac_cable_product_id: '',
+      dc_cable_meters: '',
+      ac_cable_meters: ''
+    });
+  };
+
+  const handleApplyCustomBom = async (e) => {
+    if (e) e.preventDefault();
+    setSubmitting(true);
+    try {
+      // 1. Auto-save latest specs first
+      await api.patch(`/surveys/${id}`, {
+        roof_type: specs.roof_type,
+        shadow_free_area_sqft: Number(specs.shadow_free_area_sqft) || 0,
+        proposed_capacity_kw: Number(specs.proposed_capacity_kw) || 0,
+        sanctioned_load_kw: Number(specs.sanctioned_load_kw) || 0,
+        supply_phase: specs.supply_phase,
+        discom_provider: specs.discom_provider,
+        consumer_number: specs.consumer_number,
+        distance_roof_to_meter_m: Number(specs.distance_roof_to_meter_m) || 0,
+        earthing_pits_needed: Number(specs.earthing_pits_needed) || 2,
+        structure_type: specs.structure_type,
+        notes: specs.notes
+      });
+
+      // 2. Build payload with overrides
+      const payload = {};
+      if (bomOverrides.panel_product_id) payload.panel_product_id = bomOverrides.panel_product_id;
+      if (bomOverrides.inverter_product_id) payload.inverter_product_id = bomOverrides.inverter_product_id;
+      if (bomOverrides.structure_product_id) payload.structure_product_id = bomOverrides.structure_product_id;
+      if (bomOverrides.dc_cable_product_id) payload.dc_cable_product_id = bomOverrides.dc_cable_product_id;
+      if (bomOverrides.ac_cable_product_id) payload.ac_cable_product_id = bomOverrides.ac_cable_product_id;
+      if (bomOverrides.dc_cable_meters) payload.dc_cable_meters = Number(bomOverrides.dc_cable_meters);
+      if (bomOverrides.ac_cable_meters) payload.ac_cable_meters = Number(bomOverrides.ac_cable_meters);
+
+      const res = await api.post(`/surveys/${id}/bom`, payload);
+      if (res?.data?.id) {
+        setSelectedBomId(res.data.id);
+      }
+      setShowCustomizeModal(false);
+      await fetchSurvey();
+      alert('Customized Engineering BOM generated successfully.');
+    } catch (err) {
+      alert(err.message || 'Failed to generate customized BOM');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleApproveBom = async (bomId) => {
     if (!window.confirm('Approve this BOM revision for procurement and installation?')) return;
     setSubmitting(true);
@@ -221,6 +319,12 @@ export function SurveyDetailPage() {
     || survey.project_boms?.[0]
     || null;
 
+  const panelOptions = catalogProducts.filter(p => p.product_categories?.code === 'PANEL' || p.sku?.startsWith('PNL'));
+  const inverterOptions = catalogProducts.filter(p => p.product_categories?.code === 'INVERTER' || p.sku?.startsWith('INV'));
+  const structureOptions = catalogProducts.filter(p => p.product_categories?.code === 'STRUCTURE' || p.sku?.startsWith('STR'));
+  const dcCableOptions = catalogProducts.filter(p => (p.product_categories?.code === 'CABLE' || p.sku?.startsWith('CBL')) && (p.sku?.includes('DC') || p.product_specifications?.is_uv_resistant));
+  const acCableOptions = catalogProducts.filter(p => (p.product_categories?.code === 'CABLE' || p.sku?.startsWith('CBL')) && (p.sku?.includes('AC') || p.product_specifications?.is_armored));
+
   return (
     <div className="space-y-6">
       {/* Top Header */}
@@ -255,6 +359,15 @@ export function SurveyDetailPage() {
               Review Survey
             </Button>
           )}
+
+          <Button
+            variant="outline"
+            size="sm"
+            icon={SlidersHorizontal}
+            onClick={handleOpenCustomizeModal}
+          >
+            Customize BOM
+          </Button>
 
           <Button 
             variant="accent" 
@@ -583,7 +696,16 @@ export function SurveyDetailPage() {
               </div>
 
               {activeBom && (
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3 flex-wrap justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={SlidersHorizontal}
+                    onClick={handleOpenCustomizeModal}
+                    className="hidden sm:inline-flex"
+                  >
+                    Customize Components
+                  </Button>
                   <div className="text-left sm:text-right">
                     <span className="text-[10px] uppercase text-slate-400 block font-semibold">Total Hardware Cost</span>
                     <span className="font-mono text-lg font-bold text-midnight">
@@ -859,29 +981,53 @@ export function SurveyDetailPage() {
                         <th className="py-2.5 px-3 font-mono text-right">Quantity</th>
                         <th className="py-2.5 px-3 font-mono text-right">Unit Rate</th>
                         <th className="py-2.5 px-3 font-mono text-right">Total (₹)</th>
+                        <th className="py-2.5 px-3 text-center">Customize</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {activeBom.project_bom_items?.map((it) => (
-                        <tr key={it.id} className="hover:bg-slate-50">
-                          <td className="py-2.5 px-3 font-mono font-bold text-midnight">
-                            {it.products?.sku}
-                          </td>
-                          <td className="py-2.5 px-3">
-                            <span className="font-semibold text-slate-800">{it.products?.model_name}</span>
-                            {it.notes && <span className="block text-[11px] text-slate-500">{it.notes}</span>}
-                          </td>
-                          <td className="py-2.5 px-3 font-mono font-semibold text-slate-900 text-right">
-                            {Number(it.quantity)} {it.products?.unit_code}
-                          </td>
-                          <td className="py-2.5 px-3 font-mono text-slate-600 text-right">
-                            ₹{Number(it.unit_cost).toLocaleString('en-IN')}
-                          </td>
-                          <td className="py-2.5 px-3 font-mono font-bold text-midnight text-right">
-                            ₹{Number(it.total_cost).toLocaleString('en-IN')}
-                          </td>
-                        </tr>
-                      ))}
+                      {activeBom.project_bom_items?.map((it) => {
+                        const isPanel = it.products?.sku?.startsWith('PNL');
+                        const isInverter = it.products?.sku?.startsWith('INV');
+                        const isStructure = it.products?.sku?.startsWith('STR');
+                        const isCable = it.products?.sku?.startsWith('CBL');
+                        const isCustomizable = isPanel || isInverter || isStructure || isCable;
+
+                        return (
+                          <tr key={it.id} className="hover:bg-slate-50">
+                            <td className="py-2.5 px-3 font-mono font-bold text-midnight">
+                              {it.products?.sku}
+                            </td>
+                            <td className="py-2.5 px-3">
+                              <span className="font-semibold text-slate-800">{it.products?.model_name}</span>
+                              {it.notes && <span className="block text-[11px] text-slate-500">{it.notes}</span>}
+                            </td>
+                            <td className="py-2.5 px-3 font-mono font-semibold text-slate-900 text-right">
+                              {Number(it.quantity)} {it.products?.unit_code}
+                            </td>
+                            <td className="py-2.5 px-3 font-mono text-slate-600 text-right">
+                              ₹{Number(it.unit_cost).toLocaleString('en-IN')}
+                            </td>
+                            <td className="py-2.5 px-3 font-mono font-bold text-midnight text-right">
+                              ₹{Number(it.total_cost).toLocaleString('en-IN')}
+                            </td>
+                            <td className="py-2.5 px-3 text-center">
+                              {isCustomizable ? (
+                                <button
+                                  type="button"
+                                  onClick={handleOpenCustomizeModal}
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 transition-colors"
+                                  title="Change product brand or configure specifications"
+                                >
+                                  <SlidersHorizontal className="w-3 h-3 text-amber-600" />
+                                  <span>Switch Brand</span>
+                                </button>
+                              ) : (
+                                <span className="text-[10px] text-slate-400 font-mono">Auto BOS</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -989,6 +1135,183 @@ export function SurveyDetailPage() {
             <Button variant="primary" type="submit" loading={submitting}>
               Attach Photo
             </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Customize BOM / Brand Overrides Modal */}
+      <Modal
+        isOpen={showCustomizeModal}
+        onClose={() => setShowCustomizeModal(false)}
+        title="Customize Engineering BOM & Component Brands"
+        maxWidth="max-w-2xl"
+      >
+        <form onSubmit={handleApplyCustomBom} className="space-y-4">
+          <div className="bg-amber-50/70 border border-amber-200 rounded-lg p-3 text-xs text-amber-900 flex items-start gap-2.5">
+            <Info className="w-4 h-4 text-solar-gold mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="font-semibold text-slate-900">Engineering Compatibility Assurance</p>
+              <p className="text-amber-800 text-[11px] mt-0.5 leading-relaxed">
+                Select your preferred manufacturer brands or custom cable lengths. The engineering engine will automatically test electrical voltage boundaries (cold Voc / MPPT), physical roof substrate fit, and voltage drops before updating the BOM.
+              </p>
+            </div>
+          </div>
+
+          {/* Section 1: PV Modules */}
+          <div className="space-y-1">
+            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center justify-between">
+              <span>1. Solar PV Module Brand</span>
+              <span className="text-[11px] font-normal text-slate-500 font-mono">540W - 545W Mono PERC Half-Cut</span>
+            </label>
+            <select
+              value={bomOverrides.panel_product_id}
+              onChange={(e) => setBomOverrides({ ...bomOverrides, panel_product_id: e.target.value })}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white font-medium text-slate-900 focus:ring-2 focus:ring-solar-gold"
+            >
+              <option value="">Auto-Select Best Cost (System Default)</option>
+              {panelOptions.map(p => (
+                <option key={p.id} value={p.id}>
+                  {p.brand} — {p.model_name} (₹{Number(p.standard_cost).toLocaleString('en-IN')})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Section 2: Inverter */}
+          <div className="space-y-1">
+            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center justify-between">
+              <span>2. Solar Inverter Brand</span>
+              <span className="text-[11px] font-normal text-slate-500 font-mono">{specs.supply_phase} Phase (Grid Compatible)</span>
+            </label>
+            <select
+              value={bomOverrides.inverter_product_id}
+              onChange={(e) => setBomOverrides({ ...bomOverrides, inverter_product_id: e.target.value })}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white font-medium text-slate-900 focus:ring-2 focus:ring-solar-gold"
+            >
+              <option value="">Auto-Select Best Fit (System Default)</option>
+              {inverterOptions
+                .filter(inv => {
+                  const phase = inv.product_specifications?.phase || (inv.sku.includes('3P') ? 'THREE' : 'SINGLE');
+                  return phase === specs.supply_phase;
+                })
+                .map(inv => (
+                  <option key={inv.id} value={inv.id}>
+                    {inv.brand} — {inv.model_name} ({inv.product_specifications?.phase || '1P'} - ₹{Number(inv.standard_cost).toLocaleString('en-IN')})
+                  </option>
+                ))}
+            </select>
+          </div>
+
+          {/* Section 3: Mounting Structure */}
+          <div className="space-y-1">
+            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center justify-between">
+              <span>3. Module Mounting Structure</span>
+              <span className="text-[11px] font-normal text-slate-500 font-mono">Roof: {specs.roof_type}</span>
+            </label>
+            <select
+              value={bomOverrides.structure_product_id}
+              onChange={(e) => setBomOverrides({ ...bomOverrides, structure_product_id: e.target.value })}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white font-medium text-slate-900 focus:ring-2 focus:ring-solar-gold"
+            >
+              <option value="">Auto-Select for Substrate (System Default)</option>
+              {structureOptions.map(st => (
+                <option key={st.id} value={st.id}>
+                  {st.brand} — {st.model_name} (₹{Number(st.standard_cost).toLocaleString('en-IN')}/kW)
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Section 4: Cables & Wiring Overrides */}
+          <div className="border-t border-slate-200 pt-3 space-y-2">
+            <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+              4. Cable Specifications & Run Lengths
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* DC Solar Cable */}
+              <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-2">
+                <span className="text-xs font-bold text-slate-700 block">DC Solar String Cable</span>
+                <div>
+                  <label className="text-[11px] text-slate-500 block mb-0.5">Conductor Gauge / SKU</label>
+                  <select
+                    value={bomOverrides.dc_cable_product_id}
+                    onChange={(e) => setBomOverrides({ ...bomOverrides, dc_cable_product_id: e.target.value })}
+                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                  >
+                    <option value="">Auto Gauge (Based on V-Drop)</option>
+                    {dcCableOptions.map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.sku} (₹{c.standard_cost}/m)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-500 block mb-0.5">Total Cable Length (Meters)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="1000"
+                    placeholder="Auto-calculated from run"
+                    value={bomOverrides.dc_cable_meters}
+                    onChange={(e) => setBomOverrides({ ...bomOverrides, dc_cable_meters: e.target.value })}
+                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* AC Armored Cable */}
+              <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-2">
+                <span className="text-xs font-bold text-slate-700 block">AC Grid Interconnection Cable</span>
+                <div>
+                  <label className="text-[11px] text-slate-500 block mb-0.5">Conductor Gauge / SKU</label>
+                  <select
+                    value={bomOverrides.ac_cable_product_id}
+                    onChange={(e) => setBomOverrides({ ...bomOverrides, ac_cable_product_id: e.target.value })}
+                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
+                  >
+                    <option value="">Auto Gauge (Based on V-Drop)</option>
+                    {acCableOptions.map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.sku} (₹{c.standard_cost}/m)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-500 block mb-0.5">Total Cable Length (Meters)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="1000"
+                    placeholder="Auto-calculated from run"
+                    value={bomOverrides.ac_cable_meters}
+                    onChange={(e) => setBomOverrides({ ...bomOverrides, ac_cable_meters: e.target.value })}
+                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs font-mono"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Modal Actions */}
+          <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={handleResetOverrides}
+              className="text-xs text-slate-500 hover:text-slate-800 font-medium underline"
+            >
+              Reset to Auto-Optimized
+            </button>
+
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" type="button" onClick={() => setShowCustomizeModal(false)}>
+                Cancel
+              </Button>
+              <Button variant="primary" size="sm" type="submit" loading={submitting} icon={Check}>
+                Generate Custom BOM
+              </Button>
+            </div>
           </div>
         </form>
       </Modal>

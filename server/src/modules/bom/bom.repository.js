@@ -150,19 +150,40 @@ export const bomRepository = {
   /**
    * Updates BOM status (e.g. APPROVED or REJECTED)
    */
-  async updateStatus(id, status, actorId, tx = null) {
+  async updateStatus(id, status, actorId, reason = null, tx = null) {
     const client = tx || prisma;
-    const data = {
-      status,
-      updated_at: new Date()
-    };
+
     if (status === 'APPROVED') {
-      data.approved_by = actorId;
-      data.approved_at = new Date();
+      return client.project_boms.update({
+        where: { id },
+        data: {
+          status: 'APPROVED',
+          approved_by: actorId,
+          approved_at: new Date(),
+          updated_at: new Date()
+        }
+      });
     }
+
+    if (status === 'REJECTED') {
+      // Use raw SQL update to guarantee compatibility even if the running Node process
+      // has an older in-memory Prisma client cached in RAM
+      await client.$executeRaw`
+        UPDATE project_boms 
+        SET status = 'REJECTED', 
+            rejection_reason = ${reason || null}, 
+            updated_at = NOW() 
+        WHERE id = ${id}::uuid
+      `;
+      return this.findBomById(id, client);
+    }
+
     return client.project_boms.update({
       where: { id },
-      data
+      data: {
+        status,
+        updated_at: new Date()
+      }
     });
   }
 };

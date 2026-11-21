@@ -103,9 +103,13 @@ export const listSurveysQuerySchema = z.object({
 
 // 6. Generate BOM Schema
 export const generateBomSchema = z.object({
-  panel_product_id: z.string().uuid().optional(),
-  inverter_product_id: z.string().uuid().optional(),
-  structure_product_id: z.string().uuid().optional(),
-  dc_cable_meters: z.coerce.number().min(0).max(1000).optional(),
-  ac_cable_meters: z.coerce.number().min(0).max(1000).optional()
+  panel_product_id: z.string().uuid().optional().nullable(),
+  inverter_product_id: z.string().uuid().optional().nullable(),
+  structure_product_id: z.string().uuid().optional().nullable(),
+  dc_cable_product_id: z.string().uuid().optional().nullable(),
+  ac_cable_product_id: z.string().uuid().optional().nullable(),
+  acdb_product_id: z.string().uuid().optional().nullable(),
+  dcdb_product_id: z.string().uuid().optional().nullable(),
+  dc_cable_meters: z.coerce.number().min(0).max(1000).optional().nullable(),
+  ac_cable_meters: z.coerce.number().min(0).max(1000).optional().nullable()
 });
