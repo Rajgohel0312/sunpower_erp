@@ -6,12 +6,20 @@ import { authService } from './auth.service.js';
 import { sendSuccess } from '../../utils/response.js';
 import { config } from '../../config/index.js';
 
-// Standard cookie options for refresh token
-const COOKIE_OPTIONS = {
+// Cookie options for secure token delivery
+const ACCESS_COOKIE_OPTIONS = {
   httpOnly: true,
   secure: config.NODE_ENV === 'production',
-  sameSite: 'strict',
-  path: '/api/v1/auth',
+  sameSite: 'lax',
+  path: '/',
+  maxAge: 15 * 60 * 1000 // 15 mins
+};
+
+const REFRESH_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: config.NODE_ENV === 'production',
+  sameSite: 'lax',
+  path: '/',
   maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
 };
 
@@ -32,8 +40,9 @@ export const authController = {
         userAgent
       });
 
-      // Set refresh token in HttpOnly cookie
-      res.cookie('refresh_token', result.refreshToken, COOKIE_OPTIONS);
+      // Set tokens in HttpOnly cookies
+      res.cookie('access_token', result.accessToken, ACCESS_COOKIE_OPTIONS);
+      res.cookie('refresh_token', result.refreshToken, REFRESH_COOKIE_OPTIONS);
 
       return sendSuccess(res, {
         accessToken: result.accessToken,
@@ -65,7 +74,8 @@ export const authController = {
         userAgent
       });
 
-      res.cookie('refresh_token', result.refreshToken, COOKIE_OPTIONS);
+      res.cookie('access_token', result.accessToken, ACCESS_COOKIE_OPTIONS);
+      res.cookie('refresh_token', result.refreshToken, REFRESH_COOKIE_OPTIONS);
 
       return sendSuccess(res, {
         accessToken: result.accessToken,
@@ -86,11 +96,12 @@ export const authController = {
   async logout(req, res, next) {
     try {
       const rawRefreshToken = req.cookies.refresh_token || req.body.refreshToken;
-      const rawAccessToken = req.token || (req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.substring(7) : null);
+      const rawAccessToken = req.token || req.cookies.access_token || (req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.substring(7) : null);
 
       await authService.logout({ rawRefreshToken, rawAccessToken });
 
-      res.clearCookie('refresh_token', { ...COOKIE_OPTIONS, maxAge: 0 });
+      res.clearCookie('access_token', { ...ACCESS_COOKIE_OPTIONS, maxAge: 0 });
+      res.clearCookie('refresh_token', { ...REFRESH_COOKIE_OPTIONS, maxAge: 0 });
 
       return sendSuccess(res, null, { message: 'Logged out successfully' });
     } catch (err) {

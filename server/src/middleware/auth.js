@@ -13,10 +13,13 @@ export function authenticate(req, res, next) {
   // 1. Check Authorization Bearer header
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
-    token = authHeader.substring(7);
+    const candidate = authHeader.substring(7).trim();
+    if (candidate && candidate !== 'undefined' && candidate !== 'null' && candidate !== '{{accessToken}}') {
+      token = candidate;
+    }
   }
 
-  // 2. Fallback to HttpOnly cookie if header is absent
+  // 2. Fallback to HttpOnly cookie if header is absent or invalid placeholder
   if (!token && req.cookies && req.cookies.access_token) {
     token = req.cookies.access_token;
   }

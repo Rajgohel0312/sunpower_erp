@@ -94,16 +94,19 @@
               "script": {
                 "exec": [
                   "const jsonData = pm.response.json();",
-                  "if (jsonData && jsonData.success && jsonData.data) {",
+                  "if (jsonData && jsonData.data) {",
                   "    const access = jsonData.data.accessToken || (jsonData.data.tokens && jsonData.data.tokens.accessToken);",
                   "    const refresh = jsonData.data.refreshToken || (jsonData.data.tokens && jsonData.data.tokens.refreshToken);",
                   "    if (access) {",
                   "        pm.collectionVariables.set('accessToken', access);",
-                  "        console.log('[Postman] Access token successfully captured in collection variables.');",
+                  "        pm.environment.set('accessToken', access);",
+                  "        pm.globals.set('accessToken', access);",
+                  "        console.log('[Postman] Access token successfully saved to Collection, Environment, and Globals.');",
                   "    }",
                   "    if (refresh) {",
                   "        pm.collectionVariables.set('refreshToken', refresh);",
-                  "        console.log('[Postman] Refresh token successfully captured in collection variables.');",
+                  "        pm.environment.set('refreshToken', refresh);",
+                  "        pm.globals.set('refreshToken', refresh);",
                   "    }",
                   "}"
                 ],
@@ -155,16 +158,19 @@
               "script": {
                 "exec": [
                   "const jsonData = pm.response.json();",
-                  "if (jsonData && jsonData.success && jsonData.data) {",
+                  "if (jsonData && jsonData.data) {",
                   "    const access = jsonData.data.accessToken || (jsonData.data.tokens && jsonData.data.tokens.accessToken);",
                   "    const refresh = jsonData.data.refreshToken || (jsonData.data.tokens && jsonData.data.tokens.refreshToken);",
                   "    if (access) {",
                   "        pm.collectionVariables.set('accessToken', access);",
-                  "        console.log('[Postman] Rotated access token captured in collection variables.');",
+                  "        pm.environment.set('accessToken', access);",
+                  "        pm.globals.set('accessToken', access);",
+                  "        console.log('[Postman] Rotated access token saved to Collection, Environment, and Globals.');",
                   "    }",
                   "    if (refresh) {",
                   "        pm.collectionVariables.set('refreshToken', refresh);",
-                  "        console.log('[Postman] Rotated refresh token captured in collection variables.');",
+                  "        pm.environment.set('refreshToken', refresh);",
+                  "        pm.globals.set('refreshToken', refresh);",
                   "    }",
                   "}"
                 ],
@@ -203,7 +209,11 @@
                 "exec": [
                   "pm.collectionVariables.set('accessToken', '');",
                   "pm.collectionVariables.set('refreshToken', '');",
-                  "console.log('[Postman] Logged out. Collection tokens cleared.');"
+                  "pm.environment.set('accessToken', '');",
+                  "pm.environment.set('refreshToken', '');",
+                  "pm.globals.set('accessToken', '');",
+                  "pm.globals.set('refreshToken', '');",
+                  "console.log('[Postman] Logged out. Collection, Environment, and Global tokens cleared.');"
                 ],
                 "type": "text/javascript"
               }
