@@ -23,12 +23,23 @@ export class AppError extends Error {
  * @param {number} [statusCode]
  */
 export function sendSuccess(res, data, meta = {}, statusCode = 200) {
-  return res.status(statusCode).json({
+  let resolvedMeta = meta;
+  let resolvedStatusCode = statusCode;
+
+  // Gracefully handle both sendSuccess(res, data, meta, statusCode) and sendSuccess(res, data, statusCode, meta)
+  if (typeof meta === 'number') {
+    resolvedStatusCode = meta;
+    resolvedMeta = (typeof statusCode === 'object' && statusCode !== null) ? statusCode : {};
+  } else if (typeof statusCode !== 'number') {
+    resolvedStatusCode = 200;
+  }
+
+  return res.status(resolvedStatusCode).json({
     data,
     meta: {
       timestamp: new Date().toISOString(),
       requestId: res.req?.id || null,
-      ...meta
+      ...(resolvedMeta || {})
     }
   });
 }

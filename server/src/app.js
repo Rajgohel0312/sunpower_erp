@@ -22,6 +22,8 @@ import { quotationRouter } from './modules/quotations/quotation.routes.js';
 import { orderRouter } from './modules/orders/order.routes.js';
 import inventoryRouter from './modules/inventory/inventory.routes.js';
 import { procurementRouter, serialsRouter } from './modules/procurement/procurement.routes.js';
+import dispatchRouter from './modules/dispatches/dispatch.routes.js';
+import installationRouter from './modules/installations/installation.routes.js';
 
 export const app = express();
 
@@ -80,6 +82,8 @@ apiV1.use('/orders', orderRouter);
 apiV1.use('/inventory', inventoryRouter);
 apiV1.use('/procurement', procurementRouter);
 apiV1.use('/serials', serialsRouter);
+apiV1.use('/dispatches', dispatchRouter);
+apiV1.use('/installations', installationRouter);
 apiV1.use('/', crmRouter);
 
 app.use('/api/v1', apiV1);

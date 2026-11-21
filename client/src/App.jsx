@@ -22,6 +22,9 @@ import { InventoryStockPage } from './pages/inventory/InventoryStockPage';
 import { StockMovementsPage } from './pages/inventory/StockMovementsPage';
 import { PurchaseOrdersPage } from './pages/procurement/PurchaseOrdersPage';
 import { SerialExplorerPage } from './pages/inventory/SerialExplorerPage';
+import { DispatchesListPage } from './pages/dispatches/DispatchesListPage';
+import { InstallationJobsPage } from './pages/installations/InstallationJobsPage';
+import { InstallationDetailPage } from './pages/installations/InstallationDetailPage';
 
 // Auth Guard Wrapper
 const ProtectedRoute = () => {
@@ -97,6 +100,9 @@ export const App = () => {
             <Route path="/inventory/movements" element={<StockMovementsPage />} />
             <Route path="/inventory/serials" element={<SerialExplorerPage />} />
             <Route path="/procurement/orders" element={<PurchaseOrdersPage />} />
+            <Route path="/dispatches" element={<DispatchesListPage />} />
+            <Route path="/installations" element={<InstallationJobsPage />} />
+            <Route path="/installations/:id" element={<InstallationDetailPage />} />
             <Route path="/users" element={<UsersListPage />} />
           </Route>
 

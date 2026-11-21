@@ -56,6 +56,55 @@ describe('Phase 6 — Multi-Warehouse Procurement & Inventory Ledger', () => {
     if (!testSalesOrder) {
       testSalesOrder = await prisma.sales_orders.findFirst();
     }
+    if (!testSalesOrder) {
+      let testCustomer = await prisma.customers.findFirst();
+      if (!testCustomer) {
+        testCustomer = await prisma.customers.create({
+          data: {
+            customer_code: `CUST-TEST-${Date.now()}`,
+            full_name: 'Inventory Test Customer',
+            phone_e164: '+919999988888',
+            customer_type: 'RESIDENTIAL'
+          }
+        });
+      }
+      let testQuotation = await prisma.quotations.findFirst();
+      if (!testQuotation) {
+        testQuotation = await prisma.quotations.create({
+          data: {
+            quotation_number: `QT-TEST-${Date.now()}`,
+            customers: { connect: { id: testCustomer.id } },
+            system_capacity_kw: 5.0,
+            hardware_subtotal: 150000,
+            installation_charges: 25000,
+            transport_charges: 5000,
+            subtotal: 180000,
+            taxable_amount: 180000,
+            tax_total: 24840,
+            grand_total: 204840,
+            subsidy_amount: 78000,
+            net_payable: 126840,
+            status: 'ACCEPTED',
+            valid_until: new Date(Date.now() + 30 * 86400000)
+          }
+        });
+      }
+      testSalesOrder = await prisma.sales_orders.create({
+        data: {
+          order_number: `SO-${new Date().getFullYear()}-${Date.now().toString().slice(-5)}`,
+          quotations: { connect: { id: testQuotation.id } },
+          customers: { connect: { id: testCustomer.id } },
+          system_capacity_kw: 5.0,
+          total_amount: 204840,
+          subsidy_amount: 78000,
+          net_customer_payable: 126840,
+          status: 'CONFIRMED',
+          advance_payment_received: 50000,
+          payment_status: 'PARTIALLY_PAID',
+          snapshot_data: { items: [] }
+        }
+      });
+    }
     assert.ok(testSalesOrder, 'A sales order must exist for reservation testing');
   });
 

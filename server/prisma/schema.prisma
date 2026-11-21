@@ -309,44 +309,50 @@ model user_roles {
 }
 
 model users {
-  id                                                 String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email                                              String               @unique @db.VarChar(255)
-  phone_e164                                         String               @unique @db.VarChar(20)
-  password_hash                                      String               @db.VarChar(255)
-  full_name                                          String               @db.VarChar(150)
-  is_active                                          Boolean              @default(true)
-  failed_login_attempts                              Int                  @default(0)
-  locked_until                                       DateTime?            @db.Timestamptz(6)
-  password_reset_token_hash                          String?              @db.VarChar(64)
-  password_reset_expires_at                          DateTime?            @db.Timestamptz(6)
-  created_at                                         DateTime             @default(now()) @db.Timestamptz(6)
-  updated_at                                         DateTime             @default(now()) @db.Timestamptz(6)
-  deleted_at                                         DateTime?            @db.Timestamptz(6)
-  customer_documents                                 customer_documents[]
-  customers                                          customers[]
-  follow_ups                                         follow_ups[]
-  goods_receipts                                     goods_receipts[]
-  lead_activities                                    lead_activities[]
-  leads_leads_assigned_toTousers                     leads[]              @relation("leads_assigned_toTousers")
-  leads_leads_created_byTousers                      leads[]              @relation("leads_created_byTousers")
-  login_events                                       login_events[]
-  product_prices                                     product_prices[]
-  project_boms_project_boms_approved_byTousers       project_boms[]       @relation("project_boms_approved_byTousers")
-  project_boms_project_boms_created_byTousers        project_boms[]       @relation("project_boms_created_byTousers")
-  purchase_orders_purchase_orders_approved_byTousers purchase_orders[]    @relation("purchase_orders_approved_byTousers")
-  purchase_orders_purchase_orders_created_byTousers  purchase_orders[]    @relation("purchase_orders_created_byTousers")
-  quotations_quotations_approved_byTousers           quotations[]         @relation("quotations_approved_byTousers")
-  quotations_quotations_created_byTousers            quotations[]         @relation("quotations_created_byTousers")
-  refresh_tokens                                     refresh_tokens[]
-  sales_orders                                       sales_orders[]
-  serial_movements                                   serial_movements[]
-  stock_movements                                    stock_movements[]
-  stock_reservations                                 stock_reservations[]
-  surveys_surveys_assigned_engineer_idTousers        surveys[]            @relation("surveys_assigned_engineer_idTousers")
-  surveys_surveys_created_byTousers                  surveys[]            @relation("surveys_created_byTousers")
-  surveys_surveys_reviewed_byTousers                 surveys[]            @relation("surveys_reviewed_byTousers")
-  user_roles                                         user_roles[]
-  warehouses                                         warehouses[]
+  id                                                      String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                                                   String                     @unique @db.VarChar(255)
+  phone_e164                                              String                     @unique @db.VarChar(20)
+  password_hash                                           String                     @db.VarChar(255)
+  full_name                                               String                     @db.VarChar(150)
+  is_active                                               Boolean                    @default(true)
+  failed_login_attempts                                   Int                        @default(0)
+  locked_until                                            DateTime?                  @db.Timestamptz(6)
+  password_reset_token_hash                               String?                    @db.VarChar(64)
+  password_reset_expires_at                               DateTime?                  @db.Timestamptz(6)
+  created_at                                              DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at                                              DateTime                   @default(now()) @db.Timestamptz(6)
+  deleted_at                                              DateTime?                  @db.Timestamptz(6)
+  customer_documents                                      customer_documents[]
+  customers                                               customers[]
+  dispatches                                              dispatches[]
+  follow_ups                                              follow_ups[]
+  goods_receipts                                          goods_receipts[]
+  installation_checklists                                 installation_checklists[]
+  installation_jobs_installation_jobs_created_byTousers   installation_jobs[]        @relation("installation_jobs_created_byTousers")
+  installation_jobs_installation_jobs_team_lead_idTousers installation_jobs[]        @relation("installation_jobs_team_lead_idTousers")
+  installation_photos                                     installation_photos[]
+  installation_technicians                                installation_technicians[]
+  lead_activities                                         lead_activities[]
+  leads_leads_assigned_toTousers                          leads[]                    @relation("leads_assigned_toTousers")
+  leads_leads_created_byTousers                           leads[]                    @relation("leads_created_byTousers")
+  login_events                                            login_events[]
+  product_prices                                          product_prices[]
+  project_boms_project_boms_approved_byTousers            project_boms[]             @relation("project_boms_approved_byTousers")
+  project_boms_project_boms_created_byTousers             project_boms[]             @relation("project_boms_created_byTousers")
+  purchase_orders_purchase_orders_approved_byTousers      purchase_orders[]          @relation("purchase_orders_approved_byTousers")
+  purchase_orders_purchase_orders_created_byTousers       purchase_orders[]          @relation("purchase_orders_created_byTousers")
+  quotations_quotations_approved_byTousers                quotations[]               @relation("quotations_approved_byTousers")
+  quotations_quotations_created_byTousers                 quotations[]               @relation("quotations_created_byTousers")
+  refresh_tokens                                          refresh_tokens[]
+  sales_orders                                            sales_orders[]
+  serial_movements                                        serial_movements[]
+  stock_movements                                         stock_movements[]
+  stock_reservations                                      stock_reservations[]
+  surveys_surveys_assigned_engineer_idTousers             surveys[]                  @relation("surveys_assigned_engineer_idTousers")
+  surveys_surveys_created_byTousers                       surveys[]                  @relation("surveys_created_byTousers")
+  surveys_surveys_reviewed_byTousers                      surveys[]                  @relation("surveys_reviewed_byTousers")
+  user_roles                                              user_roles[]
+  warehouses                                              warehouses[]
 
   @@index([email], map: "idx_users_email")
   @@index([phone_e164], map: "idx_users_phone")
@@ -381,6 +387,8 @@ model products {
   created_at             DateTime                @default(now()) @db.Timestamptz(6)
   updated_at             DateTime                @default(now()) @db.Timestamptz(6)
   deleted_at             DateTime?               @db.Timestamptz(6)
+  dispatch_items         dispatch_items[]
+  dispatch_serials       dispatch_serials[]
   goods_receipt_items    goods_receipt_items[]
   product_prices         product_prices[]
   product_specifications product_specifications?
@@ -721,6 +729,8 @@ model sales_orders {
   created_at               DateTime             @default(now()) @db.Timestamptz(6)
   updated_at               DateTime             @default(now()) @db.Timestamptz(6)
   deleted_at               DateTime?            @db.Timestamptz(6)
+  dispatches               dispatches[]
+  installation_jobs        installation_jobs[]
   project_boms             project_boms?        @relation(fields: [bom_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
   users                    users?               @relation(fields: [confirmed_by], references: [id], onUpdate: NoAction)
   customers                customers            @relation(fields: [customer_id], references: [id], onUpdate: NoAction)
@@ -869,6 +879,7 @@ model serial_numbers {
   manufacturing_date  DateTime?          @db.Date
   created_at          DateTime           @default(now()) @db.Timestamptz(6)
   updated_at          DateTime           @default(now()) @db.Timestamptz(6)
+  dispatch_serials    dispatch_serials[]
   serial_movements    serial_movements[]
   customers           customers?         @relation(fields: [current_customer_id], references: [id], onUpdate: NoAction)
   sales_orders        sales_orders?      @relation(fields: [current_order_id], references: [id], onUpdate: NoAction)
@@ -982,6 +993,7 @@ model warehouses {
   is_active                                                       Boolean              @default(true)
   created_at                                                      DateTime             @default(now()) @db.Timestamptz(6)
   updated_at                                                      DateTime             @default(now()) @db.Timestamptz(6)
+  dispatches                                                      dispatches[]
   goods_receipts                                                  goods_receipts[]
   purchase_orders                                                 purchase_orders[]
   serial_movements_serial_movements_from_warehouse_idTowarehouses serial_movements[]   @relation("serial_movements_from_warehouse_idTowarehouses")
@@ -994,4 +1006,170 @@ model warehouses {
 
   @@index([is_active], map: "idx_warehouses_active")
   @@index([code], map: "idx_warehouses_code")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model dispatch_items {
+  id                  String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dispatch_id         String     @db.Uuid
+  product_id          String     @db.Uuid
+  quantity_dispatched Decimal    @db.Decimal(10, 2)
+  created_at          DateTime   @default(now()) @db.Timestamptz(6)
+  dispatches          dispatches @relation(fields: [dispatch_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products            products   @relation(fields: [product_id], references: [id], onUpdate: NoAction)
+
+  @@index([dispatch_id], map: "idx_dispatch_items_dispatch")
+  @@index([product_id], map: "idx_dispatch_items_product")
+}
+
+model dispatch_serials {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dispatch_id      String         @db.Uuid
+  serial_number_id String         @db.Uuid
+  product_id       String         @db.Uuid
+  scanned_at       DateTime       @default(now()) @db.Timestamptz(6)
+  dispatches       dispatches     @relation(fields: [dispatch_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products         products       @relation(fields: [product_id], references: [id], onUpdate: NoAction)
+  serial_numbers   serial_numbers @relation(fields: [serial_number_id], references: [id], onUpdate: NoAction)
+
+  @@unique([dispatch_id, serial_number_id], map: "uq_dispatch_serial")
+  @@index([dispatch_id], map: "idx_dispatch_serials_dispatch")
+  @@index([serial_number_id], map: "idx_dispatch_serials_serial")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model dispatches {
+  id                   String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dispatch_number      String              @unique @db.VarChar(50)
+  sales_order_id       String              @db.Uuid
+  warehouse_id         String              @db.Uuid
+  driver_name          String?             @db.VarChar(150)
+  driver_phone         String?             @db.VarChar(20)
+  vehicle_number       String?             @db.VarChar(30)
+  dispatch_date        DateTime            @default(dbgenerated("CURRENT_DATE")) @db.Date
+  delivery_target_date DateTime?           @db.Date
+  delivered_at         DateTime?           @db.Timestamptz(6)
+  status               String              @default("PREPARED") @db.VarChar(50)
+  delivery_notes       String?
+  created_by           String?             @db.Uuid
+  created_at           DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime            @default(now()) @db.Timestamptz(6)
+  deleted_at           DateTime?           @db.Timestamptz(6)
+  dispatch_items       dispatch_items[]
+  dispatch_serials     dispatch_serials[]
+  users                users?              @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+  sales_orders         sales_orders        @relation(fields: [sales_order_id], references: [id], onUpdate: NoAction)
+  warehouses           warehouses          @relation(fields: [warehouse_id], references: [id], onUpdate: NoAction)
+  installation_jobs    installation_jobs[]
+
+  @@index([created_at(sort: Desc)], map: "idx_dispatches_created_at")
+  @@index([sales_order_id], map: "idx_dispatches_sales_order")
+  @@index([status], map: "idx_dispatches_status")
+  @@index([warehouse_id], map: "idx_dispatches_warehouse")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model installation_checklists {
+  id                  String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  installation_job_id String            @db.Uuid
+  step_key            String            @db.VarChar(100)
+  step_name           String            @db.VarChar(150)
+  category            String            @default("ELECTRICAL") @db.VarChar(50)
+  is_mandatory        Boolean           @default(true)
+  is_completed        Boolean           @default(false)
+  measured_value      String?           @db.VarChar(100)
+  completed_by        String?           @db.Uuid
+  completed_at        DateTime?         @db.Timestamptz(6)
+  remarks             String?
+  users               users?            @relation(fields: [completed_by], references: [id], onUpdate: NoAction)
+  installation_jobs   installation_jobs @relation(fields: [installation_job_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([installation_job_id, step_key], map: "uq_job_step")
+  @@index([installation_job_id], map: "idx_installation_checklists_job")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model installation_jobs {
+  id                                          String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  job_number                                  String                     @unique @db.VarChar(50)
+  sales_order_id                              String                     @db.Uuid
+  dispatch_id                                 String?                    @db.Uuid
+  team_lead_id                                String?                    @db.Uuid
+  scheduled_start                             DateTime                   @db.Timestamptz(6)
+  scheduled_end                               DateTime?                  @db.Timestamptz(6)
+  actual_start                                DateTime?                  @db.Timestamptz(6)
+  actual_completion                           DateTime?                  @db.Timestamptz(6)
+  status                                      String                     @default("ASSIGNED") @db.VarChar(50)
+  blocked_reason                              String?
+  completion_notes                            String?
+  created_by                                  String?                    @db.Uuid
+  created_at                                  DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at                                  DateTime                   @default(now()) @db.Timestamptz(6)
+  deleted_at                                  DateTime?                  @db.Timestamptz(6)
+  installation_checklists                     installation_checklists[]
+  users_installation_jobs_created_byTousers   users?                     @relation("installation_jobs_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction)
+  dispatches                                  dispatches?                @relation(fields: [dispatch_id], references: [id], onUpdate: NoAction)
+  sales_orders                                sales_orders               @relation(fields: [sales_order_id], references: [id], onUpdate: NoAction)
+  users_installation_jobs_team_lead_idTousers users?                     @relation("installation_jobs_team_lead_idTousers", fields: [team_lead_id], references: [id], onUpdate: NoAction)
+  installation_photos                         installation_photos[]
+  installation_signoffs                       installation_signoffs[]
+  installation_technicians                    installation_technicians[]
+
+  @@index([dispatch_id], map: "idx_installation_jobs_dispatch")
+  @@index([sales_order_id], map: "idx_installation_jobs_order")
+  @@index([scheduled_start], map: "idx_installation_jobs_scheduled_start")
+  @@index([status], map: "idx_installation_jobs_status")
+  @@index([team_lead_id], map: "idx_installation_jobs_team_lead")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model installation_photos {
+  id                  String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  installation_job_id String            @db.Uuid
+  photo_category      String            @db.VarChar(50)
+  file_url            String            @db.VarChar(500)
+  caption             String?
+  gps_lat             Decimal?          @db.Decimal(10, 7)
+  gps_lng             Decimal?          @db.Decimal(10, 7)
+  uploaded_by         String?           @db.Uuid
+  created_at          DateTime          @default(now()) @db.Timestamptz(6)
+  installation_jobs   installation_jobs @relation(fields: [installation_job_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users               users?            @relation(fields: [uploaded_by], references: [id], onUpdate: NoAction)
+
+  @@index([installation_job_id], map: "idx_installation_photos_job")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model installation_signoffs {
+  id                     String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  installation_job_id    String            @db.Uuid
+  certificate_number     String            @unique @db.VarChar(50)
+  customer_name          String            @db.VarChar(150)
+  customer_phone         String            @db.VarChar(20)
+  customer_signature_svg String
+  signed_at              DateTime          @default(now()) @db.Timestamptz(6)
+  customer_rating        Int?
+  customer_feedback      String?
+  is_net_meter_installed Boolean           @default(false)
+  discom_consumer_number String?           @db.VarChar(100)
+  tested_peak_power_kw   Decimal?          @db.Decimal(8, 2)
+  created_at             DateTime          @default(now()) @db.Timestamptz(6)
+  installation_jobs      installation_jobs @relation(fields: [installation_job_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([installation_job_id], map: "idx_installation_signoffs_job")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model installation_technicians {
+  id                  String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  installation_job_id String            @db.Uuid
+  technician_id       String            @db.Uuid
+  role_in_team        String            @default("ELECTRICIAN") @db.VarChar(50)
+  assigned_at         DateTime          @default(now()) @db.Timestamptz(6)
+  installation_jobs   installation_jobs @relation(fields: [installation_job_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users               users             @relation(fields: [technician_id], references: [id], onUpdate: NoAction)
+
+  @@unique([installation_job_id, technician_id], map: "uq_job_technician")
+  @@index([installation_job_id], map: "idx_installation_techs_job")
+  @@index([technician_id], map: "idx_installation_techs_user")
 }

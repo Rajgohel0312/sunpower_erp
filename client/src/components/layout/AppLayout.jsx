@@ -16,7 +16,9 @@ import {
   ShoppingBag,
   Boxes,
   ShoppingCart,
-  ShieldCheck
+  ShieldCheck,
+  Truck,
+  Wrench
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
 import Badge from '../common/Badge.jsx';
@@ -90,6 +92,18 @@ export function AppLayout() {
       label: 'Serial Explorer',
       icon: ShieldCheck,
       permission: 'serials:read'
+    },
+    {
+      to: '/dispatches',
+      label: 'Material Dispatch',
+      icon: Truck,
+      permission: 'dispatches:read'
+    },
+    {
+      to: '/installations',
+      label: 'Installation Jobs',
+      icon: Wrench,
+      permission: 'installations:read'
     },
     {
       to: '/users',
