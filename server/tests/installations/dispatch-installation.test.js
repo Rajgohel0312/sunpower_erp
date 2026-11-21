@@ -210,6 +210,28 @@ describe('Phase 7 — Material Dispatch, Installation Execution & Commissioning'
     assert.ok(delivered.delivered_at, 'delivered_at must be populated');
   });
 
+  it('rejects scheduling an installation job with a past date', async () => {
+    const pastDate = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
+    await assert.rejects(
+      async () => {
+        await installationService.createInstallationJob(
+          {
+            sales_order_id: testOrder.id,
+            dispatch_id: createdDispatch.id,
+            team_lead_id: adminUser.id,
+            scheduled_start: pastDate
+          },
+          adminUser
+        );
+      },
+      (err) => {
+        assert.equal(err.statusCode, 400);
+        assert.equal(err.code, 'PAST_DATE_NOT_ALLOWED');
+        return true;
+      }
+    );
+  });
+
   it('schedules an installation job (JOB-YYYY-XXXXX) and initializes the 8 mandatory checklist steps', async () => {
     const scheduledStart = new Date(Date.now() + 2 * 86400000).toISOString();
     createdJob = await installationService.createInstallationJob(

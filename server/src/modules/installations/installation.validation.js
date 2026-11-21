@@ -4,7 +4,14 @@ export const createInstallationJobSchema = z.object({
   sales_order_id: z.string().uuid({ message: 'Valid Sales Order ID is required' }),
   dispatch_id: z.string().uuid().optional(),
   team_lead_id: z.string().uuid().optional(),
-  scheduled_start: z.string({ message: 'Scheduled start date/time is required' }),
+  scheduled_start: z.string({ message: 'Scheduled start date/time is required' })
+    .refine((val) => {
+      const scheduledDate = new Date(val);
+      // Allow up to 5 minutes grace window for clock drift / request transit
+      return !isNaN(scheduledDate.getTime()) && scheduledDate.getTime() >= Date.now() - 5 * 60 * 1000;
+    }, {
+      message: 'Scheduled start date and time cannot be in the past. Please select today or a future date/time.'
+    }),
   scheduled_end: z.string().optional(),
   technicians: z.array(
     z.object({
@@ -12,6 +19,14 @@ export const createInstallationJobSchema = z.object({
       role_in_team: z.enum(['TEAM_LEAD', 'FITTER', 'ELECTRICIAN', 'HELPER']).default('ELECTRICIAN')
     })
   ).optional().default([])
+}).refine((data) => {
+  if (data.scheduled_end && data.scheduled_start) {
+    return new Date(data.scheduled_end).getTime() >= new Date(data.scheduled_start).getTime();
+  }
+  return true;
+}, {
+  message: 'Target completion date/time must be after or equal to the scheduled start date/time',
+  path: ['scheduled_end']
 });
 
 export const updateJobStatusSchema = z.object({

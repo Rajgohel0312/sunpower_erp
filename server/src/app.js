@@ -82,6 +82,7 @@ apiV1.use('/orders', orderRouter);
 apiV1.use('/inventory', inventoryRouter);
 apiV1.use('/procurement', procurementRouter);
 apiV1.use('/serials', serialsRouter);
+apiV1.use('/inventory/serials', serialsRouter);
 apiV1.use('/dispatches', dispatchRouter);
 apiV1.use('/installations', installationRouter);
 apiV1.use('/', crmRouter);

@@ -84,10 +84,27 @@ export async function createInstallationJob(input, actor) {
       throw new AppError('Cannot schedule installation for a cancelled sales order', 400, 'ORDER_CANCELLED');
     }
 
-    // 2. Generate job number
+    // 2. Validate scheduled_start is not in the past
+    const startTime = new Date(input.scheduled_start).getTime();
+    if (isNaN(startTime) || startTime < Date.now() - 5 * 60 * 1000) {
+      throw new AppError(
+        'Scheduled start date/time cannot be in the past. Please select today or a future date/time.',
+        400,
+        'PAST_DATE_NOT_ALLOWED'
+      );
+    }
+    if (input.scheduled_end && new Date(input.scheduled_end).getTime() < startTime) {
+      throw new AppError(
+        'Target completion date/time must be after or equal to the scheduled start date/time',
+        400,
+        'INVALID_END_DATE'
+      );
+    }
+
+    // 3. Generate job number
     const jobNumber = await installationRepo.generateJobNumber(trx);
 
-    // 3. Create job record
+    // 4. Create job record
     const job = await installationRepo.createJobRecord(
       {
         job_number: jobNumber,

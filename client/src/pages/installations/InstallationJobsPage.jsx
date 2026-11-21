@@ -221,6 +221,17 @@ export function InstallationJobsPage() {
       return;
     }
 
+    const startTime = new Date(scheduledStart).getTime();
+    if (isNaN(startTime) || startTime < Date.now() - 5 * 60 * 1000) {
+      setFormError('Scheduled start date and time cannot be in the past. Please select today or a future date/time.');
+      return;
+    }
+
+    if (scheduledEnd && new Date(scheduledEnd).getTime() < startTime) {
+      setFormError('Target completion date/time must be after or equal to the scheduled start date/time.');
+      return;
+    }
+
     setSubmitting(true);
     try {
       const payload = {
@@ -551,6 +562,7 @@ export function InstallationJobsPage() {
               <input
                 type="datetime-local"
                 required
+                min={new Date(Date.now() - 5 * 60 * 1000).toISOString().slice(0, 16)}
                 value={scheduledStart}
                 onChange={(e) => setScheduledStart(e.target.value)}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-mono outline-none focus:ring-2 focus:ring-midnight"
@@ -561,6 +573,7 @@ export function InstallationJobsPage() {
               <label className="block text-xs font-medium text-slate-700 mb-1">Target Completion Date & Time</label>
               <input
                 type="datetime-local"
+                min={scheduledStart || new Date(Date.now() - 5 * 60 * 1000).toISOString().slice(0, 16)}
                 value={scheduledEnd}
                 onChange={(e) => setScheduledEnd(e.target.value)}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-mono outline-none focus:ring-2 focus:ring-midnight"

@@ -19,7 +19,8 @@ import {
   ShieldAlert,
   ArrowRight,
   Sparkles,
-  RefreshCw
+  RefreshCw,
+  ExternalLink
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { useDebounce } from '../../hooks/useDebounce.js';
@@ -54,6 +55,7 @@ export function DispatchesListPage() {
   const [orders, setOrders] = useState([]);
   const [warehouses, setWarehouses] = useState([]);
   const [products, setProducts] = useState([]);
+  const [availableSerials, setAvailableSerials] = useState([]);
 
   // Form State
   const [dispatchOrderId, setDispatchOrderId] = useState('');
@@ -84,50 +86,145 @@ export function DispatchesListPage() {
     setAutoFillLoading(true);
     setAutoFillMessage('');
     try {
-      // 1. Fetch full order snapshot
+      // 1. Fetch full order details
       const orderRes = await api.get(`/orders/${orderId}`);
       const order = orderRes?.data;
 
-      // 2. Fetch reserved serial numbers
-      const serialsRes = await api.get('/inventory/serials', { current_order_id: orderId, limit: 100 });
+      // 2. Fetch reserved serial numbers specifically linked to this order
+      const serialsRes = await api.get('/serials', { current_order_id: orderId, limit: 100 });
       const reservedSerials = serialsRes?.data || [];
 
-      // 3. Auto-fill line items from snapshot_data.items
-      if (order?.snapshot_data?.items && order.snapshot_data.items.length > 0) {
-        const mappedItems = order.snapshot_data.items
-          .filter((item) => item.product_id)
-          .map((item) => ({
-            product_id: item.product_id,
-            quantity: Number(item.quantity) || 1
-          }));
+      // 3. Extract components with cascade: snapshot_data.items -> quotations.quotation_items -> project_boms.project_bom_items
+      let extractedItems = [];
+      if (Array.isArray(order?.snapshot_data?.items) && order.snapshot_data.items.length > 0) {
+        extractedItems = order.snapshot_data.items;
+      } else if (Array.isArray(order?.quotations?.quotation_items) && order.quotations.quotation_items.length > 0) {
+        extractedItems = order.quotations.quotation_items.map((qi) => ({
+          product_id: qi.product_id,
+          quantity: Number(qi.quantity) || 1,
+          sku: qi.products?.sku,
+          brand: qi.products?.brand,
+          item_name: qi.item_name
+        }));
+      } else if (Array.isArray(order?.project_boms?.project_bom_items) && order.project_boms.project_bom_items.length > 0) {
+        extractedItems = order.project_boms.project_bom_items.map((bi) => ({
+          product_id: bi.product_id,
+          quantity: Number(bi.quantity) || 1,
+          sku: bi.products?.sku,
+          brand: bi.products?.brand,
+          item_name: bi.products?.model_name || bi.products?.sku
+        }));
+      }
 
-        if (mappedItems.length > 0) {
-          setDispatchItems(mappedItems);
+      // Map to form rows
+      let validMappedRows = [];
+      if (extractedItems.length > 0) {
+        validMappedRows = extractedItems
+          .map((item) => {
+            const resolvedProdId =
+              item.product_id ||
+              products.find((p) => p.sku === item.sku || p.name === item.item_name)?.id;
+            return {
+              product_id: resolvedProdId || '',
+              quantity: Number(item.quantity) || 1
+            };
+          })
+          .filter((row) => row.product_id);
+
+        if (validMappedRows.length > 0) {
+          setDispatchItems(validMappedRows);
         }
       }
 
-      // 4. Auto-fill serial numbers
+      // 4. Resolve Origin Warehouse Depot
+      if (reservedSerials.length > 0 && reservedSerials[0].warehouse_id) {
+        setDispatchWarehouseId(reservedSerials[0].warehouse_id);
+      } else if (availableSerials.length > 0 && availableSerials[0].warehouse_id) {
+        setDispatchWarehouseId(availableSerials[0].warehouse_id);
+      } else if (warehouses.length > 0) {
+        setDispatchWarehouseId(warehouses[0].id);
+      }
+
+      // 5. Handle Serial Numbers
       if (reservedSerials.length > 0) {
         const serialsList = reservedSerials.map((s) => s.serial_number);
         setSerialsText(serialsList.join('\n'));
-        if (reservedSerials[0].warehouse_id) {
-          setDispatchWarehouseId(reservedSerials[0].warehouse_id);
+      } else if (availableSerials.length > 0) {
+        // Auto-suggest needed serialized count from available inventory serials
+        const serializedCountNeeded = validMappedRows.reduce((acc, row) => {
+          const prod = products.find((p) => p.id === row.product_id);
+          return acc + (prod?.is_serial_tracked ? row.quantity : 0);
+        }, 0);
+
+        if (serializedCountNeeded > 0) {
+          const suggested = availableSerials.slice(0, serializedCountNeeded).map((s) => s.serial_number);
+          if (suggested.length > 0) {
+            setSerialsText(suggested.join('\n'));
+          }
         }
       }
 
-      // 5. Auto-fill delivery address / notes
+      // 6. Auto-fill delivery address / notes
       const customer = order?.customers || order?.snapshot_data?.customer;
       if (customer) {
         setDeliveryNotes(`Deliver to ${customer.full_name || customer.name || 'Customer'}. Phone: ${customer.phone_e164 || customer.phone || 'N/A'}`);
       }
 
-      const itemCount = order?.snapshot_data?.items?.length || 0;
-      const serialCount = reservedSerials.length;
-      setAutoFillMessage(`Auto-filled ${itemCount} components and ${serialCount} reserved serial numbers from ${order?.order_number || 'Order'}`);
+      const itemCount = validMappedRows.length;
+      const serialCount = reservedSerials.length || (availableSerials.length > 0 ? 1 : 0);
+      if (itemCount > 0) {
+        setAutoFillMessage(`Auto-filled ${itemCount} components and ${serialCount} serial numbers from ${order?.order_number || 'Order'}`);
+      } else {
+        setAutoFillMessage(`Order ${order?.order_number} selected. You can click '+ Auto-fill Standard 5kW Solar Kit' below or pick components manually.`);
+      }
     } catch (err) {
       console.warn('Auto-fill warning:', err);
     } finally {
       setAutoFillLoading(false);
+    }
+  };
+
+  // One-click helper: Quick add single serial number to textarea
+  const handleAddSerial = (sn) => {
+    const current = serialsText ? serialsText.split('\n').map((s) => s.trim()).filter(Boolean) : [];
+    if (!current.includes(sn)) {
+      setSerialsText([...current, sn].join('\n'));
+    }
+  };
+
+  // One-click helper: Auto-insert all needed available serials
+  const handleAutoFillAvailableSerials = () => {
+    const neededCount = dispatchItems.reduce((acc, row) => {
+      const prod = products.find((p) => p.id === row.product_id);
+      return acc + (prod?.is_serial_tracked ? row.quantity : 0);
+    }, 0) || 1;
+
+    const toInsert = availableSerials.slice(0, neededCount).map((s) => s.serial_number);
+    setSerialsText(toInsert.join('\n'));
+  };
+
+  // One-click helper: Auto-populate standard 5kW residential solar kit components
+  const handleFillStandardKit = () => {
+    const pnl = products.find((p) => p.sku?.includes('PNL') || p.category_id === 'panels') || products[0];
+    const inv = products.find((p) => p.sku?.includes('INV') || p.is_serial_tracked) || products[1];
+    const str = products.find((p) => p.sku?.includes('STR')) || products[2];
+    const cbl = products.find((p) => p.sku?.includes('CBL')) || products[3];
+
+    const standardRows = [];
+    if (pnl) standardRows.push({ product_id: pnl.id, quantity: 10 });
+    if (inv) standardRows.push({ product_id: inv.id, quantity: 1 });
+    if (str) standardRows.push({ product_id: str.id, quantity: 5 });
+    if (cbl) standardRows.push({ product_id: cbl.id, quantity: 50 });
+
+    if (standardRows.length > 0) {
+      setDispatchItems(standardRows);
+      if (availableSerials.length > 0) {
+        setSerialsText(availableSerials.slice(0, 1).map((s) => s.serial_number).join('\n'));
+        if (availableSerials[0]?.warehouse_id) {
+          setDispatchWarehouseId(availableSerials[0].warehouse_id);
+        }
+      }
+      setAutoFillMessage('Loaded standard 5kW rooftop solar kit (10 PV modules, 1 inverter, mounting structures, cabling)');
     }
   };
 
@@ -159,14 +256,16 @@ export function DispatchesListPage() {
   // Load Reference Datasets for Modal
   const loadReferenceData = async () => {
     try {
-      const [ordersRes, whRes, prodRes] = await Promise.all([
+      const [ordersRes, whRes, prodRes, serRes] = await Promise.all([
         api.get('/orders', { limit: 100 }),
         api.get('/inventory/warehouses', { limit: 50 }),
-        api.get('/catalog/products', { limit: 100 })
+        api.get('/catalog/products', { limit: 100 }),
+        api.get('/serials', { status: 'AVAILABLE', limit: 50 })
       ]);
       setOrders(ordersRes?.data || []);
       setWarehouses(whRes?.data || []);
       setProducts(prodRes?.data || []);
+      setAvailableSerials(serRes?.data || []);
     } catch (err) {
       console.error('Failed to load reference data for dispatch:', err);
     }
@@ -663,17 +762,26 @@ export function DispatchesListPage() {
 
           {/* Section 3: Material Line Items */}
           <div className="space-y-2 pt-2 border-t border-slate-200">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                Materials Loaded onto Vehicle
+                Materials Loaded onto Vehicle ({dispatchItems.length})
               </span>
-              <button
-                type="button"
-                onClick={handleAddItemRow}
-                className="text-xs text-midnight font-bold hover:text-solar-gold flex items-center gap-1"
-              >
-                <Plus className="w-3.5 h-3.5" /> Add Component
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleFillStandardKit}
+                  className="text-[11px] font-semibold text-solar-gold bg-midnight hover:bg-midnight-light px-2.5 py-1 rounded transition-colors flex items-center gap-1"
+                >
+                  <Sparkles className="w-3 h-3 text-solar-gold" /> Auto-fill Standard 5kW Kit
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAddItemRow}
+                  className="text-xs text-midnight font-bold hover:text-solar-gold flex items-center gap-1"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add Component
+                </button>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -715,14 +823,72 @@ export function DispatchesListPage() {
             </div>
           </div>
 
-          {/* Section 4: Serial Numbers Barcode Scanning */}
-          <div className="space-y-1.5 pt-2 border-t border-slate-200">
-            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-              <Barcode className="w-4 h-4 text-amber-600" />
-              <span>Serialized Hardware Barcode Scanner</span>
-            </label>
+          {/* Section 4: Serial Numbers Barcode Scanning & Available Inventory Helper */}
+          <div className="space-y-2 pt-2 border-t border-slate-200">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                <Barcode className="w-4 h-4 text-amber-600" />
+                <span>Serialized Hardware Barcode Scanner</span>
+              </label>
+              {availableSerials.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleAutoFillAvailableSerials}
+                  className="text-[11px] font-semibold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded border border-emerald-300 transition-colors flex items-center gap-1"
+                >
+                  <Sparkles className="w-3 h-3 text-emerald-600" /> Auto-Insert Needed Serials
+                </button>
+              )}
+            </div>
+
+            {/* In-Stock Available Serials Helper Panel */}
+            <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-lg space-y-2">
+              <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  In-Stock Available Serials in Inventory ({availableSerials.length})
+                </span>
+                <Link
+                  to="/inventory/serials"
+                  target="_blank"
+                  className="text-[11px] text-sky-600 hover:underline flex items-center gap-1 font-medium"
+                >
+                  Serial Explorer <ExternalLink className="w-3 h-3" />
+                </Link>
+              </div>
+
+              {availableSerials.length === 0 ? (
+                <p className="text-[11px] text-slate-500 italic">
+                  No available serial numbers found in stock. Inward serialized inventory via{' '}
+                  <Link to="/procurement/orders" target="_blank" className="text-sky-600 underline font-medium">
+                    Procurement Goods Receipt (GRN)
+                  </Link>.
+                </p>
+              ) : (
+                <>
+                  <p className="text-[11px] text-slate-600">
+                    Click any serial number below to append it to your truck loading manifest:
+                  </p>
+                  <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1">
+                    {availableSerials.map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => handleAddSerial(s.serial_number)}
+                        className="px-2 py-0.5 rounded bg-white hover:bg-amber-100 border border-slate-300 hover:border-amber-400 text-[11px] font-mono text-slate-800 transition-colors flex items-center gap-1 shadow-sm"
+                        title={`${s.products?.brand || ''} ${s.products?.model_name || s.products?.sku || ''}`}
+                      >
+                        <span className="text-emerald-600 font-bold">+</span>
+                        <span>{s.serial_number}</span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
             <p className="text-[11px] text-slate-500">
-              Scan or enter one unique serial number per line for all serialized components (e.g. Inverters, Batteries):
+              One unique serial number per line for each serialized hardware item (Inverters, PV Panels):
             </p>
             <textarea
               rows={3}

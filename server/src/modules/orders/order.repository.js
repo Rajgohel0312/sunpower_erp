@@ -74,7 +74,20 @@ export async function getOrderById(id) {
           quotation_number: true,
           grand_total: true,
           net_payable: true,
-          payment_terms: true
+          payment_terms: true,
+          quotation_items: {
+            include: {
+              products: {
+                select: {
+                  id: true,
+                  sku: true,
+                  brand: true,
+                  model_name: true,
+                  is_serial_tracked: true
+                }
+              }
+            }
+          }
         }
       },
       project_boms: {
@@ -82,7 +95,20 @@ export async function getOrderById(id) {
           id: true,
           bom_number: true,
           system_capacity_kw: true,
-          total_cost: true
+          total_cost: true,
+          project_bom_items: {
+            include: {
+              products: {
+                select: {
+                  id: true,
+                  sku: true,
+                  brand: true,
+                  model_name: true,
+                  is_serial_tracked: true
+                }
+              }
+            }
+          }
         }
       },
       leads: {
