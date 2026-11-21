@@ -252,8 +252,19 @@ export function SurveysListPage() {
                     <td className="py-3.5 px-4 font-mono text-xs">
                       {srv.proposed_capacity_kw ? (
                         <div>
-                          <span className="font-bold text-midnight">{srv.proposed_capacity_kw} kW</span>
-                          <span className="block text-[11px] text-slate-500 font-sans">{srv.roof_type?.replace(/_/g, ' ') || 'Roof TBD'}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold text-midnight">{srv.proposed_capacity_kw} kW</span>
+                            {srv.boms_count > 0 ? (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-300">
+                                BOM Sized
+                              </span>
+                            ) : (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] text-slate-400 bg-slate-100">
+                                Pending BOM
+                              </span>
+                            )}
+                          </div>
+                          <span className="block text-[11px] text-slate-500 font-sans mt-0.5">{srv.roof_type?.replace(/_/g, ' ') || 'Roof TBD'}</span>
                         </div>
                       ) : (
                         <span className="text-slate-400">Specs pending</span>
@@ -271,8 +282,8 @@ export function SurveysListPage() {
                     </td>
                     <td className="py-3.5 px-4 text-right">
                       <Link to={`/surveys/${srv.id}`}>
-                        <Button variant="outline" size="sm" icon={ChevronRight}>
-                          Open Feasibility
+                        <Button variant={srv.boms_count > 0 ? 'accent' : 'outline'} size="sm" icon={ChevronRight}>
+                          {srv.boms_count > 0 ? 'Survey & BOM' : 'Start Sizing'}
                         </Button>
                       </Link>
                     </td>

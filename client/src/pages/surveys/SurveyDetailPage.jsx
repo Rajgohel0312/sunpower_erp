@@ -5,7 +5,7 @@ import {
   Calendar, Zap, CheckCircle2, AlertTriangle, FileText, 
   Camera, Image, Plus, Check, RefreshCw, Send, Layers, Box,
   Sparkles, ShieldCheck, Cpu, XCircle, AlertCircle, Info, Lock,
-  CheckCircle, ArrowRight, SlidersHorizontal
+  CheckCircle, ArrowRight, SlidersHorizontal, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import Button from '../../components/common/Button.jsx';
@@ -17,6 +17,10 @@ export function SurveyDetailPage() {
   const [survey, setSurvey] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Primary Goal Navigation Tab: 'survey' | 'bom'
+  const [activeTab, setActiveTab] = useState('survey');
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   // Modals & Submitting
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -99,8 +103,8 @@ export function SurveyDetailPage() {
     fetchCatalogProducts();
   }, [fetchSurvey, fetchCatalogProducts]);
 
-  const handleSaveSpecs = async (e) => {
-    e.preventDefault();
+  const handleSaveSpecs = async (e, proceedToBom = false) => {
+    if (e) e.preventDefault();
     setSavingSpecs(true);
     setSpecsMessage('');
 
@@ -119,7 +123,10 @@ export function SurveyDetailPage() {
         notes: specs.notes
       });
       setSpecsMessage('Rooftop specifications saved successfully.');
-      fetchSurvey();
+      await fetchSurvey();
+      if (proceedToBom) {
+        setActiveTab('bom');
+      }
     } catch (err) {
       alert(err.message || 'Failed to save rooftop specs');
     } finally {
@@ -192,6 +199,7 @@ export function SurveyDetailPage() {
         setSelectedBomId(null);
       }
       await fetchSurvey();
+      setActiveTab('bom'); // Automatically switch to BOM view
     } catch (err) {
       alert(err.message || 'Failed to generate BOM');
     } finally {
@@ -236,7 +244,6 @@ export function SurveyDetailPage() {
     if (e) e.preventDefault();
     setSubmitting(true);
     try {
-      // 1. Auto-save latest specs first
       await api.patch(`/surveys/${id}`, {
         roof_type: specs.roof_type,
         shadow_free_area_sqft: Number(specs.shadow_free_area_sqft) || 0,
@@ -251,7 +258,6 @@ export function SurveyDetailPage() {
         notes: specs.notes
       });
 
-      // 2. Build payload with overrides
       const payload = {};
       if (bomOverrides.panel_product_id) payload.panel_product_id = bomOverrides.panel_product_id;
       if (bomOverrides.inverter_product_id) payload.inverter_product_id = bomOverrides.inverter_product_id;
@@ -267,7 +273,7 @@ export function SurveyDetailPage() {
       }
       setShowCustomizeModal(false);
       await fetchSurvey();
-      alert('Customized Engineering BOM generated successfully.');
+      setActiveTab('bom');
     } catch (err) {
       alert(err.message || 'Failed to generate customized BOM');
     } finally {
@@ -281,7 +287,6 @@ export function SurveyDetailPage() {
     try {
       await api.post(`/boms/${bomId}/approve`);
       await fetchSurvey();
-      alert('BOM approved successfully for installation.');
     } catch (err) {
       alert(err.message || 'Failed to approve BOM');
     } finally {
@@ -304,7 +309,7 @@ export function SurveyDetailPage() {
   };
 
   if (loading) {
-    return <div className="p-12 text-center text-slate-500 text-sm">Loading feasibility survey...</div>;
+    return <div className="p-12 text-center text-slate-500 text-sm">Loading site survey...</div>;
   }
 
   if (error || !survey) {
@@ -326,343 +331,481 @@ export function SurveyDetailPage() {
   const acCableOptions = catalogProducts.filter(p => (p.product_categories?.code === 'CABLE' || p.sku?.startsWith('CBL')) && (p.sku?.includes('AC') || p.product_specifications?.is_armored));
 
   return (
-    <div className="space-y-6">
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <Link to="/surveys">
-            <Button variant="outline" size="sm" icon={ArrowLeft}>Back</Button>
-          </Link>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-sm font-semibold text-slate-500">{survey.survey_number}</span>
-              <Badge variant={survey.status === 'APPROVED' ? 'success' : survey.status === 'REVISION_REQUIRED' ? 'danger' : 'warning'}>
-                {survey.status}
-              </Badge>
+    <div className="space-y-5">
+      {/* 1. Header & Survey Context Card */}
+      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Link to="/surveys">
+              <Button variant="outline" size="sm" icon={ArrowLeft}>Back to Surveys</Button>
+            </Link>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-sm font-bold text-slate-700">{survey.survey_number}</span>
+                <Badge variant={survey.status === 'APPROVED' ? 'success' : survey.status === 'REVISION_REQUIRED' ? 'danger' : 'warning'}>
+                  {survey.status}
+                </Badge>
+                {activeBom && (
+                  <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-300 inline-flex items-center gap-1 font-mono">
+                    <Layers className="w-3 h-3 text-emerald-600" /> BOM: ₹{Number(activeBom.total_cost).toLocaleString('en-IN')} ({activeBom.system_capacity_kw} kW)
+                  </span>
+                )}
+              </div>
+              <h1 className="text-xl font-bold text-midnight mt-0.5">
+                Site Survey & Engineering Feasibility
+              </h1>
             </div>
-            <h2 className="text-xl font-bold text-midnight">
-              Rooftop Feasibility Assessment
-            </h2>
+          </div>
+
+          {/* Action Controls */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {(survey.status === 'SCHEDULED' || survey.status === 'IN_PROGRESS' || survey.status === 'REVISION_REQUIRED') && (
+              <Button variant="primary" size="sm" icon={Send} onClick={handleSubmitForReview}>
+                Submit for Approval
+              </Button>
+            )}
+
+            {survey.status === 'SUBMITTED' && (
+              <Button variant="green" size="sm" icon={Check} onClick={() => setShowReviewModal(true)}>
+                Review Survey
+              </Button>
+            )}
+
+            <Button
+              variant="outline"
+              size="sm"
+              icon={SlidersHorizontal}
+              onClick={handleOpenCustomizeModal}
+            >
+              Customize Brands
+            </Button>
+
+            <Button 
+              variant="accent" 
+              size="sm" 
+              icon={Layers} 
+              loading={submitting} 
+              onClick={handleGenerateBom}
+            >
+              {activeBom ? 'Re-calculate BOM' : 'Generate Engineering BOM'}
+            </Button>
           </div>
         </div>
 
-        {/* Action Controls */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {(survey.status === 'SCHEDULED' || survey.status === 'IN_PROGRESS' || survey.status === 'REVISION_REQUIRED') && (
-            <Button variant="primary" size="sm" icon={Send} onClick={handleSubmitForReview}>
-              Submit for Approval
-            </Button>
-          )}
+        {/* Compact Prospect & Engineer Summary Strip */}
+        <div className="pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+          <div className="flex items-center gap-2 text-slate-700">
+            <User className="w-4 h-4 text-slate-400 shrink-0" />
+            <div>
+              <span className="text-slate-400 block text-[10px] uppercase font-semibold">Prospect</span>
+              <span className="font-semibold text-slate-900">
+                {survey.leads?.full_name || survey.customers?.full_name || 'Prospect'}
+              </span>
+              {survey.leads && (
+                <Link to={`/leads/${survey.leads.id}`} className="text-solar-gold hover:underline font-mono ml-1.5 text-[11px]">
+                  ({survey.leads.lead_number})
+                </Link>
+              )}
+            </div>
+          </div>
 
-          {survey.status === 'SUBMITTED' && (
-            <Button variant="green" size="sm" icon={Check} onClick={() => setShowReviewModal(true)}>
-              Review Survey
-            </Button>
-          )}
+          <div className="flex items-center gap-2 text-slate-700">
+            <Phone className="w-4 h-4 text-slate-400 shrink-0" />
+            <div>
+              <span className="text-slate-400 block text-[10px] uppercase font-semibold">Phone</span>
+              <span className="font-mono text-slate-800">{survey.leads?.phone_e164 || survey.customers?.phone_e164 || '—'}</span>
+            </div>
+          </div>
 
-          <Button
-            variant="outline"
-            size="sm"
-            icon={SlidersHorizontal}
-            onClick={handleOpenCustomizeModal}
-          >
-            Customize BOM
-          </Button>
+          <div className="flex items-center gap-2 text-slate-700">
+            <MapPin className="w-4 h-4 text-slate-400 shrink-0" />
+            <div className="truncate">
+              <span className="text-slate-400 block text-[10px] uppercase font-semibold">Site Address</span>
+              <span className="text-slate-800 truncate block">
+                {survey.leads?.site_address || 'Gujarat, India'}
+              </span>
+            </div>
+          </div>
 
-          <Button 
-            variant="accent" 
-            size="sm" 
-            icon={Layers} 
-            loading={submitting} 
-            onClick={handleGenerateBom}
-          >
-            {activeBom ? 'Re-generate BOM' : 'Generate Engineering BOM'}
-          </Button>
+          <div className="flex items-center gap-2 text-slate-700">
+            <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+            <div>
+              <span className="text-slate-400 block text-[10px] uppercase font-semibold">Field Engineer & Date</span>
+              <span className="text-slate-800 font-medium">
+                {survey.engineer?.full_name || 'Unassigned'} • {new Date(survey.scheduled_at).toLocaleDateString()}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column: Linked Entity, Photos & Schedule */}
-        <div className="space-y-6">
-          {/* Prospect Card */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
-            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Linked Entity Details
-            </h3>
+      {/* 2. Core Primary Tabs (The 2 Core Goals) */}
+      <div className="flex items-center border-b border-slate-200 bg-white rounded-t-xl px-4 pt-1 shadow-sm">
+        <button
+          type="button"
+          onClick={() => setActiveTab('survey')}
+          className={`flex items-center gap-2 py-3.5 px-6 text-sm font-bold border-b-2 transition-all cursor-pointer ${
+            activeTab === 'survey'
+              ? 'border-solar-gold text-midnight bg-amber-50/40 rounded-t-lg'
+              : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
+          }`}
+        >
+          <ClipboardCheck className={`w-4 h-4 ${activeTab === 'survey' ? 'text-solar-gold' : 'text-slate-400'}`} />
+          <span>1. Site Survey & Rooftop Specs</span>
+          {survey.proposed_capacity_kw && (
+            <span className="px-2 py-0.5 rounded-full text-[11px] font-mono bg-slate-100 text-slate-700 ml-1">
+              {survey.proposed_capacity_kw} kW
+            </span>
+          )}
+        </button>
 
-            {survey.leads && (
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-slate-900">{survey.leads.full_name}</span>
-                  <Link to={`/leads/${survey.leads.id}`} className="text-xs text-solar-gold hover:underline font-mono">
-                    {survey.leads.lead_number}
-                  </Link>
-                </div>
-                <div className="flex items-center gap-2 text-xs font-mono text-slate-600">
-                  <Phone className="w-3.5 h-3.5 text-slate-400" />
-                  {survey.leads.phone_e164}
-                </div>
-                <div className="text-xs text-slate-500 flex items-start gap-1.5 pt-1">
-                  <MapPin className="w-3.5 h-3.5 text-slate-400 mt-0.5 flex-shrink-0" />
-                  <span>{survey.leads.site_address || 'No street address specified'} ({survey.leads.city || 'Gujarat'})</span>
-                </div>
-              </div>
-            )}
+        <button
+          type="button"
+          onClick={() => setActiveTab('bom')}
+          className={`flex items-center gap-2 py-3.5 px-6 text-sm font-bold border-b-2 transition-all cursor-pointer ${
+            activeTab === 'bom'
+              ? 'border-solar-gold text-midnight bg-amber-50/40 rounded-t-lg'
+              : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
+          }`}
+        >
+          <Layers className={`w-4 h-4 ${activeTab === 'bom' ? 'text-solar-green' : 'text-slate-400'}`} />
+          <span>2. Engineering BOM & Sizing</span>
+          {activeBom ? (
+            <span className="px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-emerald-100 text-emerald-800 ml-1">
+              ₹{Number(activeBom.total_cost).toLocaleString('en-IN')}
+            </span>
+          ) : (
+            <span className="px-2 py-0.5 rounded-full text-[10px] uppercase font-semibold bg-slate-100 text-slate-500 ml-1">
+              Pending Sizing
+            </span>
+          )}
+        </button>
+      </div>
 
-            <div className="pt-3 border-t border-slate-100 text-xs space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">Field Engineer:</span>
-                <span className="font-semibold text-slate-800">{survey.engineer?.full_name || 'Unassigned'}</span>
+      {/* 3. TAB 1: Site Survey & Rooftop Specs */}
+      {activeTab === 'survey' && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left 2 Columns: Specifications Form */}
+          <div className="lg:col-span-2 space-y-6">
+            <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <h3 className="text-sm font-bold text-midnight flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-solar-gold" /> Rooftop Technical Measurements
+                </h3>
+                {specsMessage && (
+                  <span className="text-xs text-solar-green font-medium flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> {specsMessage}
+                  </span>
+                )}
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-slate-500">Scheduled:</span>
-                <span className="font-mono text-slate-800">
-                  {new Date(survey.scheduled_at).toLocaleDateString()}
-                </span>
-              </div>
-            </div>
-          </div>
 
-          {/* Rooftop Photos Section */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                <Camera className="w-4 h-4 text-solar-gold" /> Rooftop Photos ({survey.survey_photos?.length || 0})
-              </h3>
-              <Button variant="ghost" size="sm" icon={Plus} onClick={() => setShowPhotoModal(true)}>
-                Add Photo
-              </Button>
-            </div>
-
-            {(!survey.survey_photos || survey.survey_photos.length === 0) ? (
-              <div className="py-6 text-center text-slate-400 text-xs italic">
-                No site photos uploaded yet. Upload rooftop panorama and electric meter board.
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-2">
-                {survey.survey_photos.map((ph) => (
-                  <div key={ph.id} className="border border-slate-200 rounded-lg p-2 text-xs bg-slate-50 space-y-1">
-                    <div className="font-semibold text-[11px] text-slate-700 truncate">
-                      {ph.photo_category.replace(/_/g, ' ')}
-                    </div>
-                    <a href={ph.file_url} target="_blank" rel="noreferrer" className="block text-[11px] text-midnight underline truncate">
-                      View Photo Link
-                    </a>
-                    {ph.caption && <p className="text-[10px] text-slate-400 truncate">{ph.caption}</p>}
+              <form onSubmit={(e) => handleSaveSpecs(e, false)} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Roof Type *</label>
+                    <select
+                      value={specs.roof_type}
+                      onChange={(e) => setSpecs({ ...specs, roof_type: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
+                    >
+                      <option value="RCC_FLAT">RCC Flat Slab</option>
+                      <option value="METAL_SHEET">Industrial Metal / Tin Sheet</option>
+                      <option value="TILED_ROOF">Slanted Tiled Roof</option>
+                      <option value="GROUND_MOUNT">Ground Mount</option>
+                      <option value="OTHER">Other / Mixed</option>
+                    </select>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
 
-        {/* Right 2 Columns: Rooftop Specs Form & Generated BOM */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Rooftop Feasibility Specs Form */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="text-sm font-bold text-midnight flex items-center gap-2">
-                <Zap className="w-4 h-4 text-solar-gold" /> Rooftop Technical Specifications
-              </h3>
-              {specsMessage && (
-                <span className="text-xs text-solar-green font-medium flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> {specsMessage}
-                </span>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Shadow-free Area (sq ft) *</label>
+                    <input
+                      type="number"
+                      required
+                      placeholder="e.g. 400"
+                      value={specs.shadow_free_area_sqft}
+                      onChange={(e) => setSpecs({ ...specs, shadow_free_area_sqft: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Proposed Capacity (kW) *</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      required
+                      placeholder="e.g. 5.4"
+                      value={specs.proposed_capacity_kw}
+                      onChange={(e) => setSpecs({ ...specs, proposed_capacity_kw: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono font-bold text-midnight"
+                    />
+                  </div>
+                </div>
+
+                {/* Live Feasibility & Area Calculator Banner */}
+                {specs.proposed_capacity_kw > 0 && (() => {
+                  const estModules = Math.ceil((Number(specs.proposed_capacity_kw) * 1000) / 540);
+                  const estNetSqft = estModules * 27.81;
+                  const estRequiredSqft = Math.max(Math.ceil(estNetSqft * 1.65), Math.ceil(Number(specs.proposed_capacity_kw) * 75));
+                  const availSqft = Number(specs.shadow_free_area_sqft) || 0;
+                  const isDeficit = availSqft > 0 && availSqft < estRequiredSqft;
+                  const deficitSqft = isDeficit ? estRequiredSqft - availSqft : 0;
+                  const maxFeasible = estRequiredSqft > 0 && availSqft > 0
+                    ? Number((availSqft / (estRequiredSqft / Number(specs.proposed_capacity_kw))).toFixed(1))
+                    : 0;
+
+                  return (
+                    <div className={`p-3 rounded-lg border text-xs flex items-start gap-2.5 ${
+                      isDeficit
+                        ? 'bg-rose-50 border-rose-200 text-rose-900'
+                        : 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                    }`}>
+                      <AlertTriangle className={`w-4 h-4 flex-shrink-0 mt-0.5 ${
+                        isDeficit ? 'text-rose-600' : 'text-emerald-600'
+                      }`} />
+                      <div className="flex-1">
+                        <div className="font-bold flex items-center gap-2">
+                          <span>
+                            {isDeficit
+                              ? `Space Deficit: ~${deficitSqft} sq ft short for standard array`
+                              : `✓ Rooftop Space Confirmed: Area is sufficient for ${specs.proposed_capacity_kw} kWp`}
+                          </span>
+                          <span className="font-mono text-[11px] opacity-75 font-normal">
+                            (Needs ~{estRequiredSqft} sq ft for {estModules}x 540W modules @ 1.65x pitch)
+                          </span>
+                        </div>
+                        <div className="text-[11px] mt-0.5 opacity-90 leading-relaxed">
+                          {isDeficit ? (
+                            <span>
+                              Available shadow-free area ({availSqft} sq ft) cannot fit this array without shade.
+                              Max capacity: ~<strong>{maxFeasible} kWp</strong>.
+                            </span>
+                          ) : (
+                            <span>
+                              Current {availSqft} sq ft comfortably accommodates {estModules} modules (~{(estModules * 0.54).toFixed(2)} kWp) with 1.65x inter-row clearance.
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Sanctioned Load (kW) *</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      required
+                      placeholder="e.g. 6.0"
+                      value={specs.sanctioned_load_kw}
+                      onChange={(e) => setSpecs({ ...specs, sanctioned_load_kw: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Supply Phase *</label>
+                    <select
+                      value={specs.supply_phase}
+                      onChange={(e) => setSpecs({ ...specs, supply_phase: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
+                    >
+                      <option value="SINGLE">Single Phase (230V)</option>
+                      <option value="THREE">Three Phase (415V)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">DISCOM Utility *</label>
+                    <select
+                      value={specs.discom_provider}
+                      onChange={(e) => setSpecs({ ...specs, discom_provider: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
+                    >
+                      <option value="UGVCL">UGVCL (Uttar Gujarat)</option>
+                      <option value="PGVCL">PGVCL (Paschim Gujarat)</option>
+                      <option value="DGVCL">DGVCL (Dakshin Gujarat)</option>
+                      <option value="MGVCL">MGVCL (Madhya Gujarat)</option>
+                      <option value="TORRENT_POWER">Torrent Power</option>
+                      <option value="OTHER">Other Discom</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Consumer / Meter Number</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 10293847561"
+                      value={specs.consumer_number}
+                      onChange={(e) => setSpecs({ ...specs, consumer_number: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Roof-to-Meter Cable Run (m)</label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 25"
+                      value={specs.distance_roof_to_meter_m}
+                      onChange={(e) => setSpecs({ ...specs, distance_roof_to_meter_m: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-700 mb-1">Mounting Structure *</label>
+                    <select
+                      value={specs.structure_type}
+                      onChange={(e) => setSpecs({ ...specs, structure_type: e.target.value })}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
+                    >
+                      <option value="STANDARD_GI">Standard HDG GI Structure</option>
+                      <option value="ELEVATED_SUPER_STRUCTURE">Elevated Super Structure (&gt; 8 ft)</option>
+                      <option value="BALLASTED">Non-penetrating Ballasted</option>
+                      <option value="FLUSH_MOUNT">Tin Shed Flush Clamps</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 mb-1">Survey Field Notes</label>
+                  <textarea
+                    rows={2}
+                    placeholder="e.g. RCC terrace in good condition, south-facing, no high parapet shade."
+                    value={specs.notes}
+                    onChange={(e) => setSpecs({ ...specs, notes: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm placeholder-slate-400"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                  <span className="text-xs text-slate-400">
+                    Always save measurements before sizing hardware.
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" type="submit" loading={savingSpecs}>
+                      Save Specs
+                    </Button>
+                    <Button
+                      variant="accent"
+                      type="button"
+                      icon={ArrowRight}
+                      loading={savingSpecs}
+                      onClick={() => handleSaveSpecs(null, true)}
+                    >
+                      Save & Proceed to BOM
+                    </Button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          {/* Right 1 Column: Rooftop Photos & Feasibility Checklist */}
+          <div className="space-y-6">
+            {/* Rooftop Photos */}
+            <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <Camera className="w-4 h-4 text-solar-gold" /> Rooftop Photos ({survey.survey_photos?.length || 0})
+                </h3>
+                <Button variant="outline" size="sm" icon={Plus} onClick={() => setShowPhotoModal(true)}>
+                  Upload Photo
+                </Button>
+              </div>
+
+              {(!survey.survey_photos || survey.survey_photos.length === 0) ? (
+                <div className="py-6 text-center text-slate-400 text-xs space-y-1">
+                  <Image className="w-8 h-8 mx-auto opacity-40 text-midnight" />
+                  <p>No rooftop photos uploaded yet.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  {survey.survey_photos.map((p) => (
+                    <div key={p.id} className="relative group rounded-lg overflow-hidden border border-slate-200 bg-slate-100 aspect-video">
+                      <img src={p.file_url} alt={p.caption || 'Roof photo'} className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-midnight/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-2 text-white text-[10px]">
+                        <span className="font-semibold truncate">{p.photo_category?.replace(/_/g, ' ')}</span>
+                        {p.caption && <span className="opacity-80 truncate">{p.caption}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
 
-            <form onSubmit={handleSaveSpecs} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Roof Type *</label>
-                  <select
-                    value={specs.roof_type}
-                    onChange={(e) => setSpecs({ ...specs, roof_type: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
-                  >
-                    <option value="RCC_FLAT">RCC Flat Slab</option>
-                    <option value="METAL_SHEET">Industrial Metal / Tin Sheet</option>
-                    <option value="TILED_ROOF">Slanted Tiled Roof</option>
-                    <option value="GROUND_MOUNT">Ground Mount</option>
-                    <option value="OTHER">Other / Mixed</option>
-                  </select>
+            {/* Quick Readiness Callout */}
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-solar-green" /> Feasibility Checklist
+              </h4>
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className={`w-3.5 h-3.5 ${specs.proposed_capacity_kw ? 'text-solar-green' : 'text-slate-300'}`} />
+                  <span className={specs.proposed_capacity_kw ? 'text-slate-800' : 'text-slate-400'}>Capacity requirement set</span>
                 </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Shadow-free Area (sq ft) *</label>
-                  <input
-                    type="number"
-                    required
-                    placeholder="e.g. 400"
-                    value={specs.shadow_free_area_sqft}
-                    onChange={(e) => setSpecs({ ...specs, shadow_free_area_sqft: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono"
-                  />
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className={`w-3.5 h-3.5 ${specs.shadow_free_area_sqft ? 'text-solar-green' : 'text-slate-300'}`} />
+                  <span className={specs.shadow_free_area_sqft ? 'text-slate-800' : 'text-slate-400'}>Shadow-free roof area measured</span>
                 </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Proposed Capacity (kW) *</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    required
-                    placeholder="e.g. 5.4"
-                    value={specs.proposed_capacity_kw}
-                    onChange={(e) => setSpecs({ ...specs, proposed_capacity_kw: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono font-bold text-midnight"
-                  />
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className={`w-3.5 h-3.5 ${specs.sanctioned_load_kw ? 'text-solar-green' : 'text-slate-300'}`} />
+                  <span className={specs.sanctioned_load_kw ? 'text-slate-800' : 'text-slate-400'}>DISCOM load & meter recorded</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className={`w-3.5 h-3.5 ${survey.status === 'APPROVED' ? 'text-solar-green' : 'text-slate-300'}`} />
+                  <span className={survey.status === 'APPROVED' ? 'text-slate-800 font-semibold' : 'text-slate-400'}>
+                    Engineering approval: {survey.status}
+                  </span>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
 
-              {/* Live Feasibility & Area Calculator */}
-              {specs.proposed_capacity_kw > 0 && (() => {
-                const estModules = Math.ceil((Number(specs.proposed_capacity_kw) * 1000) / 540);
-                const estNetSqft = estModules * 27.81;
-                const estRequiredSqft = Math.max(Math.ceil(estNetSqft * 1.65), Math.ceil(Number(specs.proposed_capacity_kw) * 75));
-                const availSqft = Number(specs.shadow_free_area_sqft) || 0;
-                const isDeficit = availSqft > 0 && availSqft < estRequiredSqft;
-                const deficitSqft = isDeficit ? estRequiredSqft - availSqft : 0;
-                const maxFeasible = estRequiredSqft > 0 && availSqft > 0
-                  ? Number((availSqft / (estRequiredSqft / Number(specs.proposed_capacity_kw))).toFixed(1))
-                  : 0;
-
-                return (
-                  <div className={`p-3 rounded-lg border text-xs flex items-start gap-2.5 ${
-                    isDeficit
-                      ? 'bg-rose-50 border-rose-200 text-rose-900'
-                      : 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                  }`}>
-                    <AlertTriangle className={`w-4 h-4 flex-shrink-0 mt-0.5 ${
-                      isDeficit ? 'text-rose-600' : 'text-emerald-600'
-                    }`} />
-                    <div className="flex-1">
-                      <div className="font-bold flex items-center gap-2">
-                        <span>
-                          {isDeficit
-                            ? `⚠️ Space Deficit: ~${deficitSqft} sq ft short for standard array`
-                            : `✓ Rooftop Space Confirmed: Area is sufficient for ${specs.proposed_capacity_kw} kWp`}
-                        </span>
-                        <span className="font-mono text-[11px] opacity-75 font-normal">
-                          (Needs ~{estRequiredSqft} sq ft for {estModules}x 540W modules @ 1.65x pitch)
-                        </span>
-                      </div>
-                      <div className="text-[11px] mt-0.5 opacity-90 leading-relaxed">
-                        {isDeficit ? (
-                          <span>
-                            Available shadow-free area ({availSqft} sq ft) cannot fit this array without shade.
-                            Maximum feasible capacity is ~<strong>{maxFeasible} kWp</strong>. 
-                            <strong> Deficit will flag [AREA_INSUFFICIENT] and block installation-ready approval</strong> until proposed capacity is reduced or area is expanded.
-                          </span>
-                        ) : (
-                          <span>
-                            Current {availSqft} sq ft comfortably accommodates {estModules} modules (~{(estModules * 0.54).toFixed(2)} kWp) with 1.65x inter-row shadow clearance.
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Sanctioned Load (kW) *</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    required
-                    placeholder="e.g. 6.0"
-                    value={specs.sanctioned_load_kw}
-                    onChange={(e) => setSpecs({ ...specs, sanctioned_load_kw: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Supply Phase *</label>
-                  <select
-                    value={specs.supply_phase}
-                    onChange={(e) => setSpecs({ ...specs, supply_phase: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
-                  >
-                    <option value="SINGLE">Single Phase (230V)</option>
-                    <option value="THREE">Three Phase (415V)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">DISCOM Utility *</label>
-                  <select
-                    value={specs.discom_provider}
-                    onChange={(e) => setSpecs({ ...specs, discom_provider: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
-                  >
-                    <option value="UGVCL">UGVCL (Uttar Gujarat)</option>
-                    <option value="PGVCL">PGVCL (Paschim Gujarat)</option>
-                    <option value="DGVCL">DGVCL (Dakshin Gujarat)</option>
-                    <option value="MGVCL">MGVCL (Madhya Gujarat)</option>
-                    <option value="TORRENT_POWER">Torrent Power</option>
-                    <option value="OTHER">Other Discom</option>
-                  </select>
-                </div>
+      {/* 4. TAB 2: Engineering Bill of Materials (BOM) */}
+      {activeTab === 'bom' && (
+        <div className="space-y-5">
+          {!activeBom ? (
+            <div className="bg-white rounded-xl border border-slate-200 p-12 shadow-sm text-center max-w-2xl mx-auto space-y-4">
+              <div className="w-16 h-16 rounded-2xl bg-solar-gold/10 text-solar-gold flex items-center justify-center mx-auto">
+                <Layers className="w-8 h-8" />
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Consumer / Meter Number</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 10293847561"
-                    value={specs.consumer_number}
-                    onChange={(e) => setSpecs({ ...specs, consumer_number: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Roof-to-Meter Cable Run (m)</label>
-                  <input
-                    type="number"
-                    placeholder="e.g. 25"
-                    value={specs.distance_roof_to_meter_m}
-                    onChange={(e) => setSpecs({ ...specs, distance_roof_to_meter_m: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-slate-700 mb-1">Mounting Structure *</label>
-                  <select
-                    value={specs.structure_type}
-                    onChange={(e) => setSpecs({ ...specs, structure_type: e.target.value })}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
-                  >
-                    <option value="STANDARD_GI">Standard HDG GI Structure</option>
-                    <option value="ELEVATED_SUPER_STRUCTURE">Elevated Super Structure (Above 8 ft)</option>
-                    <option value="BALLASTED">Non-penetrating Ballasted</option>
-                    <option value="FLUSH_MOUNT">Tin Shed Flush Clamps</option>
-                  </select>
-                </div>
+              <div>
+                <h3 className="text-lg font-bold text-midnight">No Engineering BOM Generated Yet</h3>
+                <p className="text-sm text-slate-500 mt-1 max-w-md mx-auto">
+                  Generate an automated, installation-ready Bill of Materials with Tier-A PV modules, string inverters, HDG structures, and AC/DC protection gear based on your rooftop survey specifications.
+                </p>
               </div>
-
-              <div className="flex justify-end pt-2">
-                <Button variant="primary" type="submit" loading={savingSpecs}>
-                  Save Technical Specs
+              <div className="pt-2">
+                <Button 
+                  variant="accent" 
+                  size="lg" 
+                  icon={Layers} 
+                  loading={submitting} 
+                  onClick={handleGenerateBom}
+                >
+                  Generate Engineering BOM Now
                 </Button>
               </div>
-            </form>
-          </div>
-
-          {/* Generated Bill of Materials (BOM) Section */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-3">
-              <div className="flex items-center gap-2">
-                <Layers className="w-5 h-5 text-solar-green" />
-                <div>
-                  <h3 className="text-sm font-bold text-midnight">Engineering Bill of Materials (BOM)</h3>
-                  {activeBom && (
-                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                      <span className="font-mono text-xs text-slate-500 font-semibold">
+            </div>
+          ) : (
+            <div className="space-y-5">
+              {/* Top BOM KPI Summary Card */}
+              <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-solar-green/10 text-solar-green flex items-center justify-center">
+                    <Layers className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs font-bold text-slate-500">
                         {activeBom.bom_number} (v{activeBom.version})
                       </span>
                       <Badge variant={activeBom.status === 'APPROVED' ? 'success' : activeBom.status === 'SUPERSEDED' ? 'neutral' : activeBom.status === 'REJECTED' ? 'danger' : 'warning'}>
@@ -677,41 +820,48 @@ export function SurveyDetailPage() {
                           <AlertTriangle className="w-3 h-3 text-amber-600" /> PRELIMINARY
                         </span>
                       )}
-                      {survey.project_boms?.length > 1 && (
-                        <select
-                          value={activeBom.id}
-                          onChange={(e) => setSelectedBomId(e.target.value)}
-                          className="text-[11px] border border-slate-200 rounded px-1.5 py-0.5 font-mono bg-white text-slate-700 ml-1"
-                        >
-                          {survey.project_boms.map((b) => (
-                            <option key={b.id} value={b.id}>
-                              v{b.version} ({b.system_capacity_kw} kW - ₹{Number(b.total_cost).toLocaleString('en-IN')})
-                            </option>
-                          ))}
-                        </select>
-                      )}
                     </div>
-                  )}
+                    <div className="text-lg font-bold text-midnight mt-0.5">
+                      {activeBom.system_capacity_kw} kW System • <span className="font-mono text-solar-green">₹{Number(activeBom.total_cost).toLocaleString('en-IN')}</span> Total Hardware Cost
+                    </div>
+                  </div>
                 </div>
-              </div>
 
-              {activeBom && (
-                <div className="flex items-center gap-3 flex-wrap justify-end">
+                {/* BOM Actions & Version Selection */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {survey.project_boms?.length > 1 && (
+                    <select
+                      value={activeBom.id}
+                      onChange={(e) => setSelectedBomId(e.target.value)}
+                      className="text-xs px-2.5 py-1.5 border border-slate-300 rounded-lg bg-white font-mono"
+                    >
+                      {survey.project_boms.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          v{b.version} — ₹{Number(b.total_cost).toLocaleString('en-IN')} ({b.status})
+                        </option>
+                      ))}
+                    </select>
+                  )}
+
                   <Button
                     variant="outline"
                     size="sm"
                     icon={SlidersHorizontal}
                     onClick={handleOpenCustomizeModal}
-                    className="hidden sm:inline-flex"
                   >
-                    Customize Components
+                    Customize Brands
                   </Button>
-                  <div className="text-left sm:text-right">
-                    <span className="text-[10px] uppercase text-slate-400 block font-semibold">Total Hardware Cost</span>
-                    <span className="font-mono text-lg font-bold text-midnight">
-                      ₹{Number(activeBom.total_cost).toLocaleString('en-IN')}
-                    </span>
-                  </div>
+
+                  <Button
+                    variant="accent"
+                    size="sm"
+                    icon={RefreshCw}
+                    loading={submitting}
+                    onClick={handleGenerateBom}
+                  >
+                    Re-calculate
+                  </Button>
+
                   {activeBom.status !== 'APPROVED' && (
                     <div className="flex items-center gap-1.5">
                       {activeBom.is_approval_blocked ? (
@@ -748,35 +898,113 @@ export function SurveyDetailPage() {
                     </div>
                   )}
                 </div>
-              )}
-            </div>
+              </div>
 
-            {/* Out-of-sync alert if survey capacity changed since BOM was created */}
-            {activeBom && Number(activeBom.system_capacity_kw) !== Number(survey.proposed_capacity_kw) && (
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 text-xs text-amber-900 flex items-center justify-between">
-                <span>
-                  ⚠️ <strong>Survey specs updated to {survey.proposed_capacity_kw} kWp.</strong> This BOM was generated for {activeBom.system_capacity_kw} kWp.
-                </span>
+              {/* Out-of-sync alert if survey capacity changed since BOM was created */}
+              {Number(activeBom.system_capacity_kw) !== Number(survey.proposed_capacity_kw) && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-900 flex items-center justify-between">
+                  <span>
+                    ⚠️ <strong>Survey specs updated to {survey.proposed_capacity_kw} kWp.</strong> This BOM was generated for {activeBom.system_capacity_kw} kWp.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleGenerateBom}
+                    className="font-bold underline text-amber-900 hover:text-amber-700 ml-2 whitespace-nowrap cursor-pointer"
+                  >
+                    Click to Recalculate
+                  </button>
+                </div>
+              )}
+
+              {/* BOM Line Items Table */}
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-midnight flex items-center gap-2">
+                    <Box className="w-4 h-4 text-solar-gold" /> Bill of Materials Hardware Items ({activeBom.project_bom_items?.length || 0})
+                  </h3>
+                  <span className="font-mono text-xs text-slate-500 font-semibold">
+                    Grand Total: ₹{Number(activeBom.total_cost).toLocaleString('en-IN')}
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider">
+                      <tr>
+                        <th className="py-3 px-4">Component & Product</th>
+                        <th className="py-3 px-4">SKU / Code</th>
+                        <th className="py-3 px-4 text-center">Quantity</th>
+                        <th className="py-3 px-4 text-right">Unit Rate (₹)</th>
+                        <th className="py-3 px-4 text-right">GST %</th>
+                        <th className="py-3 px-4 text-right">Total Price (₹)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {activeBom.project_bom_items?.map((item) => (
+                        <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="py-3 px-4">
+                            <div className="font-semibold text-slate-900 text-sm">
+                              {item.products?.brand} {item.products?.model_name || item.products?.sku}
+                            </div>
+                            <span className="text-[11px] text-slate-400">
+                              {item.products?.product_categories?.name || 'Solar Hardware'}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 font-mono text-slate-500">
+                            {item.products?.sku || '—'}
+                          </td>
+                          <td className="py-3 px-4 text-center font-mono font-bold text-slate-800">
+                            {Number(item.quantity)} {item.unit}
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono text-slate-600">
+                            ₹{Number(item.unit_cost).toLocaleString('en-IN')}
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono text-slate-400">
+                            {item.tax_rate_pct ? `${item.tax_rate_pct}%` : '12%'}
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono font-bold text-slate-900 text-sm">
+                            ₹{Number(item.total_cost).toLocaleString('en-IN')}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot className="bg-slate-50 border-t border-slate-200">
+                      <tr>
+                        <td colSpan={5} className="py-3.5 px-4 text-right font-bold text-midnight text-sm">
+                          Estimated Total Hardware Cost (Inc. Taxes):
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-mono font-bold text-solar-green text-base">
+                          ₹{Number(activeBom.total_cost).toLocaleString('en-IN')}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+
+              {/* Collapsible Technical Sizing & Safety Diagnostics Drawer */}
+              <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
                 <button
                   type="button"
-                  onClick={handleGenerateBom}
-                  className="font-bold underline text-amber-900 hover:text-amber-700 ml-2 whitespace-nowrap"
+                  onClick={() => setShowDiagnostics(!showDiagnostics)}
+                  className="w-full p-4 flex items-center justify-between text-left hover:bg-slate-50 transition-colors cursor-pointer"
                 >
-                  Click "Re-generate BOM" to recalculate
+                  <div className="flex items-center gap-2">
+                    <Cpu className="w-4 h-4 text-solar-gold" />
+                    <span className="text-sm font-bold text-midnight">
+                      Engineering Calculations & Safety Diagnostics
+                    </span>
+                    <span className="text-xs text-slate-400 font-normal">
+                      (Cold Voc, String Sizing, Voltage Drop & Validations)
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-slate-500 font-semibold">
+                    <span>{showDiagnostics ? 'Hide Details' : 'View Diagnostics'}</span>
+                    {showDiagnostics ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </div>
                 </button>
-              </div>
-            )}
 
-            {!activeBom ? (
-              <div className="py-8 text-center text-slate-400 text-xs space-y-2">
-                <Box className="w-10 h-10 mx-auto opacity-30 text-midnight" />
-                <p>No engineering BOM generated for this survey yet.</p>
-                <p className="text-[11px] text-slate-400">Click "Generate Engineering BOM" above to automatically calculate panel counts, inverter, structures, and cables.</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {/* Engineering Snapshot Cards */}
-                {activeBom && (() => {
+                {showDiagnostics && (() => {
                   const snap = activeBom.engineering_snapshot || {};
                   const elec = snap.electrical || {};
                   const mech = snap.mechanical || {};
@@ -802,240 +1030,154 @@ export function SurveyDetailPage() {
                   const breakerA = prot.ac_breaker_rating_a || prot.acdb?.breakerRatingA || (totalKw <= 3.6 ? 25 : totalKw <= 6 ? 32 : 63);
 
                   return (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {/* Electrical Card */}
-                      <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs space-y-2">
-                        <div className="font-bold text-slate-800 flex items-center gap-1.5 pb-1 border-b border-slate-200">
-                          <Cpu className="w-3.5 h-3.5 text-solar-gold" />
-                          <span>Electrical Architecture & Sizing</span>
+                    <div className="p-4 border-t border-slate-100 bg-slate-50/50 space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Electrical Card */}
+                        <div className="bg-white border border-slate-200 rounded-lg p-3.5 text-xs space-y-2.5">
+                          <div className="font-bold text-slate-800 flex items-center gap-1.5 pb-1 border-b border-slate-100">
+                            <Cpu className="w-3.5 h-3.5 text-solar-gold" />
+                            <span>Electrical Architecture & Sizing</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-[11px]">
+                            <div>
+                              <span className="text-slate-500 block">Modules:</span>
+                              <span className="font-semibold text-slate-900 font-mono">
+                                {totalModules}x 540W (~{totalKw} kWp)
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-slate-500 block">String Config:</span>
+                              <span className="font-semibold text-slate-900 font-mono">
+                                {stringsCount} string(s) × {modsPerString} mods
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-slate-500 block">Cold Voc (@5°C):</span>
+                              <span className="font-semibold text-slate-900 font-mono">
+                                {vocCold} V
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-slate-500 block">Hot Vmp (@70°C):</span>
+                              <span className="font-semibold text-slate-900 font-mono">
+                                {vmpHot} V
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-slate-500 block">DC/AC Sizing Ratio:</span>
+                              <span className="font-semibold text-slate-900 font-mono">
+                                {dcAcRatio}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-slate-500 block">Voltage Drops:</span>
+                              <span className="font-semibold text-slate-900 font-mono">
+                                DC {dropDc}% • AC {dropAc}%
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-2 text-[11px]">
-                          <div>
-                            <span className="text-slate-500 block">Modules:</span>
-                            <span className="font-semibold text-slate-900 font-mono">
-                              {totalModules}x 540W (~{totalKw} kWp)
-                            </span>
+
+                        {/* Mechanical Card */}
+                        <div className="bg-white border border-slate-200 rounded-lg p-3.5 text-xs space-y-2.5">
+                          <div className="font-bold text-slate-800 flex items-center gap-1.5 pb-1 border-b border-slate-100">
+                            <ShieldCheck className="w-3.5 h-3.5 text-solar-green" />
+                            <span>Structural & Safety Specs</span>
                           </div>
-                          <div>
-                            <span className="text-slate-500 block">String Config:</span>
-                            <span className="font-semibold text-slate-900 font-mono">
-                              {stringsCount} string(s) × {modsPerString} mods
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-slate-500 block">Cold Voc (@5°C):</span>
-                            <span className="font-semibold text-slate-900 font-mono">
-                              {vocCold} V
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-slate-500 block">Hot Vmp (@70°C):</span>
-                            <span className="font-semibold text-slate-900 font-mono">
-                              {vmpHot} V
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-slate-500 block">DC/AC Ratio:</span>
-                            <span className="font-semibold text-slate-900 font-mono">
-                              {dcAcRatio}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-slate-500 block">Voltage Drops:</span>
-                            <span className="font-semibold text-slate-900 font-mono">
-                              DC: {dropDc}% | AC: {dropAc}%
-                            </span>
+                          <div className="grid grid-cols-2 gap-2 text-[11px]">
+                            <div>
+                              <span className="text-slate-500 block">Net Module Area:</span>
+                              <span className="font-semibold text-slate-900 font-mono">
+                                {grossArea} sq ft
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-slate-500 block">Rooftop Footprint:</span>
+                              <span className="font-semibold text-slate-900 font-mono">
+                                ~{requiredFootprint} sq ft (1.65x pitch)
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-slate-500 block">Structure Substrate:</span>
+                              <span className="font-semibold text-slate-900 font-mono truncate block">
+                                {mech.structure_type_used?.replace(/_/g, ' ') || survey.structure_type?.replace(/_/g, ' ') || 'STANDARD GI'}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-slate-500 block">Wind Rating:</span>
+                              <span className="font-semibold text-slate-900 font-mono">
+                                {mech.wind_speed_zone_kmh || 150} km/h (IS 875 Part 3)
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-slate-500 block">AC Breaker:</span>
+                              <span className="font-semibold text-slate-900 font-mono">
+                                {breakerA} A ({prot.acdb?.supplyPhase || survey.supply_phase || 'SINGLE'})
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-slate-500 block">Safety Gear:</span>
+                              <span className="font-semibold text-slate-900 font-mono">
+                                {prot.earthing_pits_needed || 2} Earthing • {prot.lightning_arrester_required ? 'LA Included' : 'Standard'}
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </div>
 
-                      {/* Mechanical & Safety Card */}
-                      <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs space-y-2">
-                        <div className="font-bold text-slate-800 flex items-center gap-1.5 pb-1 border-b border-slate-200">
-                          <ShieldCheck className="w-3.5 h-3.5 text-solar-green" />
-                          <span>Mechanical Footprint & Protection</span>
+                      {/* Engineering Validations Panel */}
+                      {activeBom.bom_validations && activeBom.bom_validations.length > 0 && (
+                        <div className="bg-white border border-slate-200 rounded-lg p-3.5 space-y-2">
+                          <div className="text-xs font-bold text-slate-700 flex items-center justify-between pb-1 border-b border-slate-100">
+                            <span className="flex items-center gap-1.5">
+                              <ShieldCheck className="w-3.5 h-3.5 text-solar-green" /> Compliance Rule Checks ({activeBom.bom_validations.length})
+                            </span>
+                            {activeBom.is_approval_blocked ? (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                                Violations Blocking Approval
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                All Safety Rules Passed
+                              </span>
+                            )}
+                          </div>
+                          <div className="space-y-1.5">
+                            {activeBom.bom_validations.map((v) => (
+                              <div
+                                key={v.id}
+                                className={`p-2 rounded text-[11px] flex items-start gap-2 border ${
+                                  v.severity === 'BLOCKING'
+                                    ? 'bg-rose-50/70 border-rose-200 text-rose-900'
+                                    : v.severity === 'WARNING'
+                                    ? 'bg-amber-50/70 border-amber-200 text-amber-900'
+                                    : 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
+                                }`}
+                              >
+                                {v.severity === 'BLOCKING' ? (
+                                  <AlertCircle className="w-3.5 h-3.5 text-rose-600 mt-0.5 shrink-0" />
+                                ) : v.severity === 'WARNING' ? (
+                                  <AlertTriangle className="w-3.5 h-3.5 text-amber-600 mt-0.5 shrink-0" />
+                                ) : (
+                                  <CheckCircle className="w-3.5 h-3.5 text-emerald-600 mt-0.5 shrink-0" />
+                                )}
+                                <div>
+                                  <span className="font-mono font-bold mr-1.5">[{v.rule_code}]</span>
+                                  <span>{v.message}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-2 text-[11px]">
-                          <div>
-                            <span className="text-slate-500 block">Gross Module Area:</span>
-                            <span className="font-semibold text-slate-900 font-mono">
-                              {grossArea} sq ft
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-slate-500 block">Footprint (1.65x pitch):</span>
-                            <span className="font-semibold text-slate-900 font-mono">
-                              {requiredFootprint} sq ft
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-slate-500 block">Space Margin:</span>
-                            <span className={`font-semibold font-mono ${
-                              deficit > 0 ? 'text-rose-600' : 'text-emerald-700'
-                            }`}>
-                              {deficit > 0 ? `Deficit: -${deficit} sq ft` : 'Clearance Confirmed'}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-slate-500 block">AC Breaker:</span>
-                            <span className="font-semibold text-slate-900 font-mono">
-                              {breakerA} A ({survey.supply_phase === 'THREE' ? '4-Pole' : '2-Pole'})
-                            </span>
-                          </div>
-                        </div>
-                      </div>
+                      )}
                     </div>
                   );
                 })()}
-
-                {/* Engineering Validations Panel */}
-                {activeBom.bom_validations && activeBom.bom_validations.length > 0 && (
-                  <div className="border border-slate-200 rounded-lg overflow-hidden">
-                    <div className="bg-slate-100 px-3.5 py-2 border-b border-slate-200 flex items-center justify-between text-xs">
-                      <div className="font-bold text-slate-800 flex items-center gap-1.5">
-                        <ClipboardCheck className="w-4 h-4 text-slate-600" />
-                        <span>Engineering Rules & Safety Audit</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-[11px]">
-                        {activeBom.bom_validations.filter(v => v.severity === 'BLOCKER').length > 0 && (
-                          <span className="px-2 py-0.5 rounded bg-rose-100 text-rose-800 font-semibold font-mono">
-                            {activeBom.bom_validations.filter(v => v.severity === 'BLOCKER').length} Blocker(s)
-                          </span>
-                        )}
-                        {activeBom.bom_validations.filter(v => v.severity === 'WARNING').length > 0 && (
-                          <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold font-mono">
-                            {activeBom.bom_validations.filter(v => v.severity === 'WARNING').length} Warning(s)
-                          </span>
-                        )}
-                        <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-semibold font-mono">
-                          {activeBom.bom_validations.filter(v => v.severity === 'INFO').length} Passed
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="p-3 space-y-2 bg-white max-h-72 overflow-y-auto">
-                      {activeBom.bom_validations.map((v) => (
-                        <div
-                          key={v.id || v.code}
-                          className={`p-2.5 rounded-lg border text-xs flex items-start gap-2.5 ${
-                            v.severity === 'BLOCKER'
-                              ? 'bg-rose-50 border-rose-200 text-rose-950'
-                              : v.severity === 'WARNING'
-                              ? 'bg-amber-50 border-amber-200 text-amber-950'
-                              : 'bg-emerald-50 border-emerald-200 text-emerald-950'
-                          }`}
-                        >
-                          {v.severity === 'BLOCKER' ? (
-                            <XCircle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
-                          ) : v.severity === 'WARNING' ? (
-                            <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                          ) : (
-                            <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
-                          )}
-                          <div className="flex-1 space-y-1">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="font-bold text-[12px]">{v.description}</span>
-                              <div className="flex items-center gap-1 font-mono text-[10px]">
-                                <span className="bg-white/80 px-1.5 py-0.5 rounded border border-slate-200 font-bold">
-                                  {v.code}
-                                </span>
-                                <span className="bg-white/80 px-1.5 py-0.5 rounded border border-slate-200">
-                                  {v.component}
-                                </span>
-                              </div>
-                            </div>
-
-                            {(v.expected_value || v.actual_value) && (
-                              <div className="text-[11px] flex items-center gap-3 font-mono opacity-80 pt-0.5">
-                                {v.expected_value && <span>Expected: {v.expected_value}</span>}
-                                {v.actual_value && <span>Actual: {v.actual_value}</span>}
-                              </div>
-                            )}
-
-                            {v.technical_explanation && (
-                              <p className="text-[11px] opacity-90 leading-relaxed italic">
-                                {v.technical_explanation}
-                              </p>
-                            )}
-
-                            {v.recommended_action && (
-                              <div className="text-[11px] font-semibold flex items-center gap-1 text-slate-800 pt-0.5">
-                                <ArrowRight className="w-3 h-3 text-slate-600" />
-                                <span>Action: {v.recommended_action}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Items Table */}
-                <div className="overflow-x-auto border border-slate-200 rounded-lg">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
-                      <tr>
-                        <th className="py-2.5 px-3">Component / SKU</th>
-                        <th className="py-2.5 px-3">Description & Notes</th>
-                        <th className="py-2.5 px-3 font-mono text-right">Quantity</th>
-                        <th className="py-2.5 px-3 font-mono text-right">Unit Rate</th>
-                        <th className="py-2.5 px-3 font-mono text-right">Total (₹)</th>
-                        <th className="py-2.5 px-3 text-center">Customize</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {activeBom.project_bom_items?.map((it) => {
-                        const isPanel = it.products?.sku?.startsWith('PNL');
-                        const isInverter = it.products?.sku?.startsWith('INV');
-                        const isStructure = it.products?.sku?.startsWith('STR');
-                        const isCable = it.products?.sku?.startsWith('CBL');
-                        const isCustomizable = isPanel || isInverter || isStructure || isCable;
-
-                        return (
-                          <tr key={it.id} className="hover:bg-slate-50">
-                            <td className="py-2.5 px-3 font-mono font-bold text-midnight">
-                              {it.products?.sku}
-                            </td>
-                            <td className="py-2.5 px-3">
-                              <span className="font-semibold text-slate-800">{it.products?.model_name}</span>
-                              {it.notes && <span className="block text-[11px] text-slate-500">{it.notes}</span>}
-                            </td>
-                            <td className="py-2.5 px-3 font-mono font-semibold text-slate-900 text-right">
-                              {Number(it.quantity)} {it.products?.unit_code}
-                            </td>
-                            <td className="py-2.5 px-3 font-mono text-slate-600 text-right">
-                              ₹{Number(it.unit_cost).toLocaleString('en-IN')}
-                            </td>
-                            <td className="py-2.5 px-3 font-mono font-bold text-midnight text-right">
-                              ₹{Number(it.total_cost).toLocaleString('en-IN')}
-                            </td>
-                            <td className="py-2.5 px-3 text-center">
-                              {isCustomizable ? (
-                                <button
-                                  type="button"
-                                  onClick={handleOpenCustomizeModal}
-                                  className="inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-semibold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 transition-colors"
-                                  title="Change product brand or configure specifications"
-                                >
-                                  <SlidersHorizontal className="w-3 h-3 text-amber-600" />
-                                  <span>Switch Brand</span>
-                                </button>
-                              ) : (
-                                <span className="text-[10px] text-slate-400 font-mono">Auto BOS</span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
-      </div>
+      )}
 
       {/* Review Modal */}
       <Modal
@@ -1098,30 +1240,29 @@ export function SurveyDetailPage() {
               <option value="ROOF_PANORAMA">Roof Panorama / Angle</option>
               <option value="SHADOW_OBSTRUCTION">Shadow Obstruction / Parapet</option>
               <option value="METER_BOX">Electricity Meter Board</option>
-              <option value="DISTRIBUTION_PANEL">Main Distribution Panel</option>
-              <option value="EARTHING_SITE">Proposed Earthing Pit Site</option>
-              <option value="CABLE_PATH">Cable Route / Shaft</option>
-              <option value="GENERAL">General Site Photo</option>
+              <option value="EARTHING_PIT">Earthing Location</option>
+              <option value="ELECTRICAL_PANEL">Main Distribution Panel</option>
+              <option value="OTHER">Other Evidence</option>
             </select>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">Photo Image URL *</label>
+            <label className="block text-xs font-medium text-slate-700 mb-1">Image URL / File Path *</label>
             <input
-              type="url"
+              type="text"
               required
-              placeholder="https://images.sunpower.com/surveys/roof-01.jpg"
+              placeholder="e.g. https://storage.sunpower.com/surveys/roof_south.jpg"
               value={photoData.file_url}
               onChange={(e) => setPhotoData({ ...photoData, file_url: e.target.value })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-mono"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1">Caption / Observation</label>
+            <label className="block text-xs font-medium text-slate-700 mb-1">Photo Caption (Optional)</label>
             <input
               type="text"
-              placeholder="e.g. South-West clear terrace area"
+              placeholder="e.g. South view showing AC outdoor unit"
               value={photoData.caption}
               onChange={(e) => setPhotoData({ ...photoData, caption: e.target.value })}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
@@ -1133,7 +1274,7 @@ export function SurveyDetailPage() {
               Cancel
             </Button>
             <Button variant="primary" type="submit" loading={submitting}>
-              Attach Photo
+              Record Photo
             </Button>
           </div>
         </form>
@@ -1148,7 +1289,7 @@ export function SurveyDetailPage() {
       >
         <form onSubmit={handleApplyCustomBom} className="space-y-4">
           <div className="bg-amber-50/70 border border-amber-200 rounded-lg p-3 text-xs text-amber-900 flex items-start gap-2.5">
-            <Info className="w-4 h-4 text-solar-gold mt-0.5 flex-shrink-0" />
+            <Info className="w-4 h-4 text-solar-gold mt-0.5 shrink-0" />
             <div>
               <p className="font-semibold text-slate-900">Engineering Compatibility Assurance</p>
               <p className="text-amber-800 text-[11px] mt-0.5 leading-relaxed">
@@ -1168,10 +1309,10 @@ export function SurveyDetailPage() {
               onChange={(e) => setBomOverrides({ ...bomOverrides, panel_product_id: e.target.value })}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white font-medium text-slate-900 focus:ring-2 focus:ring-solar-gold"
             >
-              <option value="">Auto-Select Best Cost (System Default)</option>
-              {panelOptions.map(p => (
+              <option value="">Auto-select Optimum Tier-A Brand (Default Engine Choice)</option>
+              {panelOptions.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.brand} — {p.model_name} (₹{Number(p.standard_cost).toLocaleString('en-IN')})
+                  {p.brand} {p.model_name || p.sku} ({p.rated_capacity_w || 540}W) — ₹{Number(p.standard_cost).toLocaleString('en-IN')}/module
                 </option>
               ))}
             </select>
@@ -1180,136 +1321,123 @@ export function SurveyDetailPage() {
           {/* Section 2: Inverter */}
           <div className="space-y-1">
             <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center justify-between">
-              <span>2. Solar Inverter Brand</span>
-              <span className="text-[11px] font-normal text-slate-500 font-mono">{specs.supply_phase} Phase (Grid Compatible)</span>
+              <span>2. Grid-Tied Solar Inverter</span>
+              <span className="text-[11px] font-normal text-slate-500 font-mono">
+                {specs.supply_phase === 'THREE' ? '3-Phase (415V)' : 'Single Phase (230V)'}
+              </span>
             </label>
             <select
               value={bomOverrides.inverter_product_id}
               onChange={(e) => setBomOverrides({ ...bomOverrides, inverter_product_id: e.target.value })}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white font-medium text-slate-900 focus:ring-2 focus:ring-solar-gold"
             >
-              <option value="">Auto-Select Best Fit (System Default)</option>
-              {inverterOptions
-                .filter(inv => {
-                  const phase = inv.product_specifications?.phase || (inv.sku.includes('3P') ? 'THREE' : 'SINGLE');
-                  return phase === specs.supply_phase;
-                })
-                .map(inv => (
-                  <option key={inv.id} value={inv.id}>
-                    {inv.brand} — {inv.model_name} ({inv.product_specifications?.phase || '1P'} - ₹{Number(inv.standard_cost).toLocaleString('en-IN')})
-                  </option>
-                ))}
+              <option value="">Auto-select Optimum Sized Inverter (Default Engine Choice)</option>
+              {inverterOptions.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.brand} {p.model_name || p.sku} ({p.rated_capacity_w ? `${(p.rated_capacity_w / 1000).toFixed(1)} kW` : 'Inverter'}) — ₹{Number(p.standard_cost).toLocaleString('en-IN')}
+                </option>
+              ))}
             </select>
           </div>
 
           {/* Section 3: Mounting Structure */}
           <div className="space-y-1">
-            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center justify-between">
-              <span>3. Module Mounting Structure</span>
-              <span className="text-[11px] font-normal text-slate-500 font-mono">Roof: {specs.roof_type}</span>
+            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
+              3. Solar Mounting Structure Substrate
             </label>
             <select
               value={bomOverrides.structure_product_id}
               onChange={(e) => setBomOverrides({ ...bomOverrides, structure_product_id: e.target.value })}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white font-medium text-slate-900 focus:ring-2 focus:ring-solar-gold"
             >
-              <option value="">Auto-Select for Substrate (System Default)</option>
-              {structureOptions.map(st => (
-                <option key={st.id} value={st.id}>
-                  {st.brand} — {st.model_name} (₹{Number(st.standard_cost).toLocaleString('en-IN')}/kW)
+              <option value="">Auto-adapt based on Roof Substrate (Default Engine Choice)</option>
+              {structureOptions.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.brand} {p.model_name || p.sku} — ₹{Number(p.standard_cost).toLocaleString('en-IN')}/{p.unit_code}
                 </option>
               ))}
             </select>
           </div>
 
           {/* Section 4: Cables & Wiring Overrides */}
-          <div className="border-t border-slate-200 pt-3 space-y-2">
-            <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-              4. Cable Specifications & Run Lengths
-            </h4>
+          <div className="space-y-2 pt-2 border-t border-slate-200">
+            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
+              4. Cable Lengths & Wiring Overrides
+            </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* DC Solar Cable */}
-              <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-2">
-                <span className="text-xs font-bold text-slate-700 block">DC Solar String Cable</span>
-                <div>
-                  <label className="text-[11px] text-slate-500 block mb-0.5">Conductor Gauge / SKU</label>
-                  <select
-                    value={bomOverrides.dc_cable_product_id}
-                    onChange={(e) => setBomOverrides({ ...bomOverrides, dc_cable_product_id: e.target.value })}
-                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
-                  >
-                    <option value="">Auto Gauge (Based on V-Drop)</option>
-                    {dcCableOptions.map(c => (
-                      <option key={c.id} value={c.id}>
-                        {c.sku} (₹{c.standard_cost}/m)
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[11px] text-slate-500 block mb-0.5">Total Cable Length (Meters)</label>
+              <div className="space-y-1">
+                <span className="text-[11px] font-semibold text-slate-700 block">DC Solar Cable (PV Array to Inverter)</span>
+                <select
+                  value={bomOverrides.dc_cable_product_id}
+                  onChange={(e) => setBomOverrides({ ...bomOverrides, dc_cable_product_id: e.target.value })}
+                  className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white text-slate-900"
+                >
+                  <option value="">Auto-select DC Cable Brand</option>
+                  {dcCableOptions.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.brand} {p.sku} (₹{Number(p.standard_cost)}/m)
+                    </option>
+                  ))}
+                </select>
+                <div className="flex items-center gap-2 pt-1">
                   <input
                     type="number"
-                    min="0"
-                    max="1000"
-                    placeholder="Auto-calculated from run"
+                    min="1"
+                    placeholder="Custom meters (e.g. 35)"
                     value={bomOverrides.dc_cable_meters}
                     onChange={(e) => setBomOverrides({ ...bomOverrides, dc_cable_meters: e.target.value })}
-                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs font-mono"
+                    className="w-full px-2.5 py-1 border border-slate-300 rounded text-xs font-mono"
                   />
+                  <span className="text-[11px] text-slate-500 whitespace-nowrap">meters</span>
                 </div>
               </div>
 
               {/* AC Armored Cable */}
-              <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-2">
-                <span className="text-xs font-bold text-slate-700 block">AC Grid Interconnection Cable</span>
-                <div>
-                  <label className="text-[11px] text-slate-500 block mb-0.5">Conductor Gauge / SKU</label>
-                  <select
-                    value={bomOverrides.ac_cable_product_id}
-                    onChange={(e) => setBomOverrides({ ...bomOverrides, ac_cable_product_id: e.target.value })}
-                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white"
-                  >
-                    <option value="">Auto Gauge (Based on V-Drop)</option>
-                    {acCableOptions.map(c => (
-                      <option key={c.id} value={c.id}>
-                        {c.sku} (₹{c.standard_cost}/m)
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[11px] text-slate-500 block mb-0.5">Total Cable Length (Meters)</label>
+              <div className="space-y-1">
+                <span className="text-[11px] font-semibold text-slate-700 block">AC Armored Cable (Inverter to Meter)</span>
+                <select
+                  value={bomOverrides.ac_cable_product_id}
+                  onChange={(e) => setBomOverrides({ ...bomOverrides, ac_cable_product_id: e.target.value })}
+                  className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs bg-white text-slate-900"
+                >
+                  <option value="">Auto-select AC Cable Brand</option>
+                  {acCableOptions.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.brand} {p.sku} (₹{Number(p.standard_cost)}/m)
+                    </option>
+                  ))}
+                </select>
+                <div className="flex items-center gap-2 pt-1">
                   <input
                     type="number"
-                    min="0"
-                    max="1000"
-                    placeholder="Auto-calculated from run"
+                    min="1"
+                    placeholder="Custom meters (e.g. 25)"
                     value={bomOverrides.ac_cable_meters}
                     onChange={(e) => setBomOverrides({ ...bomOverrides, ac_cable_meters: e.target.value })}
-                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded text-xs font-mono"
+                    className="w-full px-2.5 py-1 border border-slate-300 rounded text-xs font-mono"
                   />
+                  <span className="text-[11px] text-slate-500 whitespace-nowrap">meters</span>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Modal Actions */}
-          <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+          <div className="flex items-center justify-between pt-3 border-t border-slate-200">
             <button
               type="button"
               onClick={handleResetOverrides}
-              className="text-xs text-slate-500 hover:text-slate-800 font-medium underline"
+              className="text-xs text-slate-500 hover:text-slate-800 underline"
             >
-              Reset to Auto-Optimized
+              Reset to Recommended Engine Specs
             </button>
-
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" type="button" onClick={() => setShowCustomizeModal(false)}>
+            <div className="flex gap-2">
+              <Button variant="outline" type="button" onClick={() => setShowCustomizeModal(false)}>
                 Cancel
               </Button>
-              <Button variant="primary" size="sm" type="submit" loading={submitting} icon={Check}>
-                Generate Custom BOM
+              <Button variant="primary" type="submit" loading={submitting}>
+                Apply Customization & Size BOM
               </Button>
             </div>
           </div>
@@ -1318,4 +1446,3 @@ export function SurveyDetailPage() {
     </div>
   );
 }
-export default SurveyDetailPage;
