@@ -26,6 +26,10 @@ import dispatchRouter from './modules/dispatches/dispatch.routes.js';
 import installationRouter from './modules/installations/installation.routes.js';
 import warrantyRouter from './modules/warranties/warranty.routes.js';
 import ticketRouter from './modules/tickets/ticket.routes.js';
+import financeRouter from './modules/finance/finance.routes.js';
+import portalRouter from './modules/portal/portal.routes.js';
+import systemRouter from './modules/system/system.routes.js';
+import whatsappRouter from './modules/whatsapp/whatsapp.routes.js';
 
 export const app = express();
 
@@ -89,6 +93,10 @@ apiV1.use('/dispatches', dispatchRouter);
 apiV1.use('/installations', installationRouter);
 apiV1.use('/warranties', warrantyRouter);
 apiV1.use('/tickets', ticketRouter);
+apiV1.use('/finance', financeRouter);
+apiV1.use('/portal', portalRouter);
+apiV1.use('/system', systemRouter);
+apiV1.use('/whatsapp', whatsappRouter);
 apiV1.use('/', crmRouter);
 
 app.use('/api/v1', apiV1);

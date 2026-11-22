@@ -10,7 +10,8 @@ import {
   loginSchema,
   refreshTokenSchema,
   forgotPasswordSchema,
-  resetPasswordSchema
+  resetPasswordSchema,
+  changePasswordSchema
 } from './auth.schemas.js';
 
 export const authRouter = Router();
@@ -21,5 +22,6 @@ authRouter.post('/logout', authController.logout);
 authRouter.get('/me', authenticate, authController.me);
 authRouter.post('/forgot-password', validate({ body: forgotPasswordSchema }), authController.forgotPassword);
 authRouter.post('/reset-password', validate({ body: resetPasswordSchema }), authController.resetPassword);
+authRouter.post('/change-password', authenticate, validate({ body: changePasswordSchema }), authController.changePassword);
 
 export default authRouter;

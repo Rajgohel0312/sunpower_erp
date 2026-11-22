@@ -5,6 +5,8 @@ import { AppLayout } from './components/layout/AppLayout';
 
 // Pages
 import { LoginPage } from './pages/auth/LoginPage';
+import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
+import { ResetPasswordPage } from './pages/auth/ResetPasswordPage';
 import { DashboardPage } from './pages/dashboard/DashboardPage';
 import { LeadsListPage } from './pages/leads/LeadsListPage';
 import { LeadDetailPage } from './pages/leads/LeadDetailPage';
@@ -28,6 +30,11 @@ import { InstallationDetailPage } from './pages/installations/InstallationDetail
 import { WarrantiesListPage } from './pages/warranties/WarrantiesListPage';
 import { ServiceTicketsPage } from './pages/tickets/ServiceTicketsPage';
 import { ServiceTicketDetailPage } from './pages/tickets/ServiceTicketDetailPage';
+import { InvoicesListPage } from './pages/finance/InvoicesListPage';
+import { PaymentsListPage } from './pages/finance/PaymentsListPage';
+import { ProjectProfitabilityPage } from './pages/finance/ProjectProfitabilityPage';
+import { CustomerPortalPage } from './pages/portal/CustomerPortalPage';
+import WhatsAppGatewayPage from './pages/whatsapp/WhatsAppGatewayPage';
 
 // Auth Guard Wrapper
 const ProtectedRoute = () => {
@@ -84,6 +91,22 @@ export const App = () => {
               </PublicRoute>
             }
           />
+          <Route
+            path="/forgot-password"
+            element={
+              <PublicRoute>
+                <ForgotPasswordPage />
+              </PublicRoute>
+            }
+          />
+          <Route
+            path="/reset-password"
+            element={
+              <PublicRoute>
+                <ResetPasswordPage />
+              </PublicRoute>
+            }
+          />
 
           {/* Authenticated ERP Routes */}
           <Route element={<ProtectedRoute />}>
@@ -109,6 +132,11 @@ export const App = () => {
             <Route path="/warranties" element={<WarrantiesListPage />} />
             <Route path="/tickets" element={<ServiceTicketsPage />} />
             <Route path="/tickets/:id" element={<ServiceTicketDetailPage />} />
+            <Route path="/finance/invoices" element={<InvoicesListPage />} />
+            <Route path="/finance/payments" element={<PaymentsListPage />} />
+            <Route path="/finance/profitability" element={<ProjectProfitabilityPage />} />
+            <Route path="/portal" element={<CustomerPortalPage />} />
+            <Route path="/whatsapp" element={<WhatsAppGatewayPage />} />
             <Route path="/users" element={<UsersListPage />} />
           </Route>
 

@@ -11,6 +11,32 @@
 import { prisma, closeDatabase } from './index.js';
 
 const TRANSACTIONAL_TABLES = [
+  // Finance & Invoicing
+  'project_expenses',
+  'payment_allocations',
+  'payments',
+  'invoice_items',
+  'invoices',
+
+  // Warranties & Service Desk
+  'warranty_replacements',
+  'ticket_activities',
+  'service_tickets',
+  'warranties',
+
+  // Installation & Commissioning
+  'installation_signoffs',
+  'installation_photos',
+  'installation_checklists',
+  'installation_technicians',
+  'installation_jobs',
+
+  // Logistics & Dispatches
+  'dispatch_serials',
+  'dispatch_items',
+  'dispatches',
+
+  // Inventory & Procurement
   'serial_movements',
   'serial_numbers',
   'stock_movements',
@@ -19,20 +45,30 @@ const TRANSACTIONAL_TABLES = [
   'goods_receipts',
   'purchase_order_items',
   'purchase_orders',
+
+  // Sales Orders & Quotations
   'sales_orders',
   'quotation_items',
   'quotations',
+
+  // Engineering & BOMs
   'bom_validations',
   'project_bom_items',
   'project_boms',
+
+  // Site Surveys
   'survey_photos',
   'surveys',
+
+  // CRM, Leads & Customers
   'lead_activities',
   'follow_ups',
   'leads',
   'customer_documents',
   'customer_addresses',
   'customers',
+
+  // System, Logs & Background
   'file_records',
   'idempotency_keys',
   'notifications',
@@ -52,7 +88,15 @@ const SEQUENCES_TO_RESET = [
   'purchase_order_number_seq',
   'goods_receipt_number_seq',
   'stock_movement_number_seq',
-  'supplier_code_seq'
+  'supplier_code_seq',
+  'dispatch_number_seq',
+  'installation_job_number_seq',
+  'commissioning_cert_number_seq',
+  'warranty_cert_number_seq',
+  'service_ticket_number_seq',
+  'invoice_number_seq',
+  'payment_number_seq',
+  'expense_number_seq'
 ];
 
 export async function truncateOperationalData() {
@@ -117,6 +161,7 @@ export async function truncateOperationalData() {
     console.log('   - roles, permissions, role_permissions (RBAC)');
     console.log('   - users (Super Admin: admin@sunpower.com)');
     console.log('   - product_categories, products, specifications, prices');
+    console.log('   - product_warranty_policies (Manufacturer standard terms)');
     console.log('   - warehouses (Ahmedabad & Surat depots)');
     console.log('   - suppliers (Waaree, Growatt, Polycab, etc.)');
     console.log('====================================================');

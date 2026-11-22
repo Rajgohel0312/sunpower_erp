@@ -131,7 +131,7 @@ export const authController = {
     try {
       const { email } = req.body;
       const result = await authService.forgotPassword({ email });
-      return sendSuccess(res, null, { message: result.message });
+      return sendSuccess(res, { devResetToken: result.devResetToken }, { message: result.message });
     } catch (err) {
       next(err);
     }
@@ -144,6 +144,23 @@ export const authController = {
     try {
       const { token, newPassword } = req.body;
       const result = await authService.resetPassword({ token, newPassword });
+      return sendSuccess(res, null, { message: result.message });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * POST /api/v1/auth/change-password
+   */
+  async changePassword(req, res, next) {
+    try {
+      const { currentPassword, newPassword } = req.body;
+      const result = await authService.changePassword({
+        userId: req.user.id,
+        currentPassword,
+        newPassword
+      });
       return sendSuccess(res, null, { message: result.message });
     } catch (err) {
       next(err);

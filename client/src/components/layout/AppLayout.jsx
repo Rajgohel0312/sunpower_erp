@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   Sun,
@@ -19,21 +19,39 @@ import {
   ShieldCheck,
   Truck,
   Wrench,
-  LifeBuoy
+  LifeBuoy,
+  CreditCard,
+  TrendingUp,
+  Receipt,
+  KeyRound,
+  MessageSquare
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
 import Badge from '../common/Badge.jsx';
+import ChangePasswordModal from '../common/ChangePasswordModal.jsx';
 
 export function AppLayout() {
   const { user, logout, hasPermission } = useAuth();
   const navigate = useNavigate();
+  const [showChangePassword, setShowChangePassword] = useState(false);
 
   const handleLogout = async () => {
     await logout();
     navigate('/login');
   };
 
-  const navItems = [
+  const isCustomer = user?.roles?.includes('CUSTOMER');
+
+  const customerNavItems = [
+    {
+      to: '/portal',
+      label: 'My Solar Plant Portal',
+      icon: Sun,
+      exact: true
+    }
+  ];
+
+  const staffNavItems = [
     {
       to: '/',
       label: 'Dashboard',
@@ -119,6 +137,35 @@ export function AppLayout() {
       permission: 'tickets:read'
     },
     {
+      to: '/finance/invoices',
+      label: 'Invoices & Billing',
+      icon: Receipt,
+      permission: 'invoices:read'
+    },
+    {
+      to: '/finance/payments',
+      label: 'Payments Ledger',
+      icon: CreditCard,
+      permission: 'payments:read'
+    },
+    {
+      to: '/finance/profitability',
+      label: 'Project P&L Margin',
+      icon: TrendingUp,
+      permission: 'finance:report'
+    },
+    {
+      to: '/portal',
+      label: 'Customer Portal',
+      icon: Sun
+    },
+    {
+      to: '/whatsapp',
+      label: 'WhatsApp Bot',
+      icon: MessageSquare,
+      permission: 'leads:read'
+    },
+    {
       to: '/users',
       label: 'Users & Roles',
       icon: Shield,
@@ -143,7 +190,7 @@ export function AppLayout() {
 
         {/* Navigation Links */}
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {navItems.map((item) => {
+          {(isCustomer ? customerNavItems : staffNavItems).map((item) => {
             if (item.permission && !hasPermission(item.permission)) {
               return null;
             }
@@ -178,13 +225,22 @@ export function AppLayout() {
               <p className="text-xs font-semibold text-white truncate">{user?.fullName || user?.email}</p>
               <p className="text-[10px] text-slate-400 font-mono truncate">{user?.roles?.[0] || 'User'}</p>
             </div>
-            <button
-              onClick={handleLogout}
-              title="Sign Out"
-              className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-midnight-dark rounded-md transition-colors"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
+            <div className="flex items-center gap-0.5">
+              <button
+                onClick={() => setShowChangePassword(true)}
+                title="Change Password"
+                className="p-1.5 text-slate-400 hover:text-solar-gold hover:bg-midnight-dark rounded-md transition-colors"
+              >
+                <KeyRound className="w-4 h-4" />
+              </button>
+              <button
+                onClick={handleLogout}
+                title="Sign Out"
+                className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-midnight-dark rounded-md transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
       </aside>
@@ -194,10 +250,19 @@ export function AppLayout() {
         {/* Top Header */}
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 flex-shrink-0">
           <div className="flex items-center gap-3">
-            <h1 className="text-lg font-bold text-midnight">SunPower Solar Operations</h1>
+            <h1 className="text-lg font-bold text-midnight">
+              {isCustomer ? 'SunPower Customer Portal' : 'SunPower Solar Operations'}
+            </h1>
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowChangePassword(true)}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition-colors"
+            >
+              <KeyRound className="w-3.5 h-3.5 text-slate-500" />
+              Change Password
+            </button>
             <div className="flex items-center gap-2">
               <span className="text-xs text-slate-500">Active Role:</span>
               <Badge variant="warning" className="font-mono text-[11px] font-semibold">
@@ -212,6 +277,12 @@ export function AppLayout() {
           <Outlet />
         </main>
       </div>
+
+      {/* Change Password Dialog */}
+      <ChangePasswordModal
+        isOpen={showChangePassword}
+        onClose={() => setShowChangePassword(false)}
+      />
     </div>
   );
 }

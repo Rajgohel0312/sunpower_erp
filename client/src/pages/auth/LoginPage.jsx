@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Sun, Lock, Mail, AlertCircle, ArrowRight } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
 import Button from '../../components/common/Button.jsx';
@@ -24,8 +24,12 @@ export function LoginPage() {
     setErrorMsg('');
 
     try {
-      await login(email, password);
-      navigate('/');
+      const res = await login(email.trim().toLowerCase(), password);
+      if (res?.user?.roles?.includes('CUSTOMER')) {
+        navigate('/portal');
+      } else {
+        navigate('/');
+      }
     } catch (err) {
       setErrorMsg(err.message || 'Invalid email or password. Please try again.');
     } finally {
@@ -41,11 +45,11 @@ export function LoginPage() {
             <Sun className="w-8 h-8 fill-solar-gold" />
           </div>
         </div>
-        <h2 className="mt-4 text-center text-2xl font-bold tracking-tight text-midnight">
-          SunPower ERP
+        <h2 className="mt-4 text-center text-2xl font-bold tracking-tight text-midnight font-display">
+          SunPower ERP & Customer Portal
         </h2>
         <p className="mt-1 text-center text-xs font-mono uppercase tracking-widest text-slate-500">
-          Solar Project Lifecycle & Resource Planning
+          Solar Project Lifecycle, Invoicing & Self-Service
         </p>
       </div>
 
@@ -72,16 +76,24 @@ export function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  placeholder="admin@sunpower.com"
+                  placeholder="admin@sunpower.com or customer@domain.com"
                   className="block w-full pl-10 pr-3 py-2.5 border border-slate-300 rounded-lg text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-midnight focus:border-midnight"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                Password
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                  Password
+                </label>
+                <Link
+                  to="/forgot-password"
+                  className="text-xs font-semibold text-amber-600 hover:text-amber-700 hover:underline"
+                >
+                  Forgot Password?
+                </Link>
+              </div>
               <div className="mt-1 relative rounded-lg shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                   <Lock className="w-4 h-4" />
@@ -102,7 +114,7 @@ export function LoginPage() {
               loading={submitting}
               className="w-full justify-center py-2.5 text-sm font-semibold"
             >
-              Sign In to ERP
+              Sign In to SunPower
               <ArrowRight className="w-4 h-4 ml-1" />
             </Button>
           </form>

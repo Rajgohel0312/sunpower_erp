@@ -90,7 +90,9 @@ model customers {
   customer_addresses customer_addresses[]
   customer_documents customer_documents[]
   users              users?               @relation(fields: [created_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  invoices           invoices[]
   leads              leads[]
+  payments           payments[]
   project_boms       project_boms[]
   quotations         quotations[]
   sales_orders       sales_orders[]
@@ -334,13 +336,19 @@ model users {
   installation_jobs_installation_jobs_team_lead_idTousers       installation_jobs[]        @relation("installation_jobs_team_lead_idTousers")
   installation_photos                                           installation_photos[]
   installation_technicians                                      installation_technicians[]
+  invoices                                                      invoices[]
   lead_activities                                               lead_activities[]
   leads_leads_assigned_toTousers                                leads[]                    @relation("leads_assigned_toTousers")
   leads_leads_created_byTousers                                 leads[]                    @relation("leads_created_byTousers")
   login_events                                                  login_events[]
+  payment_allocations                                           payment_allocations[]
+  payments_payments_created_byTousers                           payments[]                 @relation("payments_created_byTousers")
+  payments_payments_verified_byTousers                          payments[]                 @relation("payments_verified_byTousers")
   product_prices                                                product_prices[]
   project_boms_project_boms_approved_byTousers                  project_boms[]             @relation("project_boms_approved_byTousers")
   project_boms_project_boms_created_byTousers                   project_boms[]             @relation("project_boms_created_byTousers")
+  project_expenses_project_expenses_approved_byTousers          project_expenses[]         @relation("project_expenses_approved_byTousers")
+  project_expenses_project_expenses_recorded_byTousers          project_expenses[]         @relation("project_expenses_recorded_byTousers")
   purchase_orders_purchase_orders_approved_byTousers            purchase_orders[]          @relation("purchase_orders_approved_byTousers")
   purchase_orders_purchase_orders_created_byTousers             purchase_orders[]          @relation("purchase_orders_created_byTousers")
   quotations_quotations_approved_byTousers                      quotations[]               @relation("quotations_approved_byTousers")
@@ -397,6 +405,7 @@ model products {
   dispatch_items         dispatch_items[]
   dispatch_serials       dispatch_serials[]
   goods_receipt_items    goods_receipt_items[]
+  invoice_items          invoice_items[]
   product_prices         product_prices[]
   product_specifications product_specifications?
   product_categories     product_categories      @relation(fields: [category_id], references: [id], onUpdate: NoAction)
@@ -739,6 +748,9 @@ model sales_orders {
   deleted_at               DateTime?            @db.Timestamptz(6)
   dispatches               dispatches[]
   installation_jobs        installation_jobs[]
+  invoices                 invoices[]
+  payments                 payments[]
+  project_expenses         project_expenses[]
   project_boms             project_boms?        @relation(fields: [bom_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
   users                    users?               @relation(fields: [confirmed_by], references: [id], onUpdate: NoAction)
   customers                customers            @relation(fields: [customer_id], references: [id], onUpdate: NoAction)
@@ -1314,4 +1326,139 @@ model warranty_replacements {
   @@index([defective_serial_id], map: "idx_warranty_replacements_defective")
   @@index([replacement_serial_id], map: "idx_warranty_replacements_replacement")
   @@index([ticket_id], map: "idx_warranty_replacements_ticket")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model invoice_items {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  invoice_id     String    @db.Uuid
+  product_id     String?   @db.Uuid
+  item_type      String    @default("HARDWARE") @db.VarChar(50)
+  description    String    @db.VarChar(255)
+  hsn_sac_code   String?   @default("995465") @db.VarChar(20)
+  quantity       Decimal   @default(1.000) @db.Decimal(10, 3)
+  unit_code      String    @default("NOS") @db.VarChar(20)
+  unit_price     Decimal   @default(0.00) @db.Decimal(14, 2)
+  taxable_amount Decimal   @default(0.00) @db.Decimal(14, 2)
+  tax_rate_pct   Decimal   @default(12.00) @db.Decimal(5, 2)
+  tax_amount     Decimal   @default(0.00) @db.Decimal(14, 2)
+  total_amount   Decimal   @default(0.00) @db.Decimal(14, 2)
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+  invoices       invoices  @relation(fields: [invoice_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  products       products? @relation(fields: [product_id], references: [id], onUpdate: NoAction)
+
+  @@index([invoice_id], map: "idx_invoice_items_invoice")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model invoices {
+  id                   String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  invoice_number       String                @unique @db.VarChar(50)
+  sales_order_id       String                @db.Uuid
+  customer_id          String                @db.Uuid
+  milestone_type       String                @default("ADVANCE") @db.VarChar(50)
+  milestone_percentage Decimal               @default(0.00) @db.Decimal(5, 2)
+  invoice_date         DateTime              @default(dbgenerated("CURRENT_DATE")) @db.Date
+  due_date             DateTime              @db.Date
+  subtotal             Decimal               @default(0.00) @db.Decimal(14, 2)
+  taxable_amount       Decimal               @default(0.00) @db.Decimal(14, 2)
+  tax_goods_amount     Decimal               @default(0.00) @db.Decimal(14, 2)
+  tax_services_amount  Decimal               @default(0.00) @db.Decimal(14, 2)
+  tax_total            Decimal               @default(0.00) @db.Decimal(14, 2)
+  grand_total          Decimal               @default(0.00) @db.Decimal(14, 2)
+  amount_paid          Decimal               @default(0.00) @db.Decimal(14, 2)
+  amount_due           Decimal               @default(0.00) @db.Decimal(14, 2)
+  status               String                @default("ISSUED") @db.VarChar(50)
+  hsn_sac_code         String?               @default("995465") @db.VarChar(20)
+  snapshot_data        Json                  @default("{}")
+  pdf_path             String?               @db.VarChar(255)
+  notes                String?
+  created_by           String?               @db.Uuid
+  created_at           DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime              @default(now()) @db.Timestamptz(6)
+  deleted_at           DateTime?             @db.Timestamptz(6)
+  invoice_items        invoice_items[]
+  users                users?                @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+  customers            customers             @relation(fields: [customer_id], references: [id], onUpdate: NoAction)
+  sales_orders         sales_orders          @relation(fields: [sales_order_id], references: [id], onUpdate: NoAction)
+  payment_allocations  payment_allocations[]
+
+  @@index([customer_id], map: "idx_invoices_customer")
+  @@index([invoice_date], map: "idx_invoices_date")
+  @@index([invoice_number], map: "idx_invoices_number")
+  @@index([sales_order_id], map: "idx_invoices_order")
+  @@index([status], map: "idx_invoices_status")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model payment_allocations {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  payment_id       String   @db.Uuid
+  invoice_id       String   @db.Uuid
+  allocated_amount Decimal  @db.Decimal(14, 2)
+  allocated_at     DateTime @default(now()) @db.Timestamptz(6)
+  allocated_by     String?  @db.Uuid
+  users            users?   @relation(fields: [allocated_by], references: [id], onUpdate: NoAction)
+  invoices         invoices @relation(fields: [invoice_id], references: [id], onUpdate: NoAction)
+  payments         payments @relation(fields: [payment_id], references: [id], onUpdate: NoAction)
+
+  @@index([invoice_id], map: "idx_allocations_invoice")
+  @@index([payment_id], map: "idx_allocations_payment")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model payments {
+  id                                String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  payment_number                    String                @unique @db.VarChar(50)
+  customer_id                       String                @db.Uuid
+  sales_order_id                    String?               @db.Uuid
+  amount                            Decimal               @db.Decimal(14, 2)
+  unallocated_amount                Decimal               @default(0.00) @db.Decimal(14, 2)
+  payment_mode                      String                @db.VarChar(50)
+  transaction_reference             String                @db.VarChar(100)
+  payment_date                      DateTime              @default(dbgenerated("CURRENT_DATE")) @db.Date
+  status                            String                @default("VERIFIED") @db.VarChar(50)
+  verified_by                       String?               @db.Uuid
+  verified_at                       DateTime?             @db.Timestamptz(6)
+  idempotency_key                   String?               @unique @db.VarChar(100)
+  notes                             String?
+  created_by                        String?               @db.Uuid
+  created_at                        DateTime              @default(now()) @db.Timestamptz(6)
+  updated_at                        DateTime              @default(now()) @db.Timestamptz(6)
+  payment_allocations               payment_allocations[]
+  users_payments_created_byTousers  users?                @relation("payments_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction)
+  customers                         customers             @relation(fields: [customer_id], references: [id], onUpdate: NoAction)
+  sales_orders                      sales_orders?         @relation(fields: [sales_order_id], references: [id], onUpdate: NoAction)
+  users_payments_verified_byTousers users?                @relation("payments_verified_byTousers", fields: [verified_by], references: [id], onUpdate: NoAction)
+
+  @@index([customer_id], map: "idx_payments_customer")
+  @@index([idempotency_key], map: "idx_payments_idem")
+  @@index([sales_order_id], map: "idx_payments_order")
+  @@index([transaction_reference], map: "idx_payments_ref")
+  @@index([status], map: "idx_payments_status")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model project_expenses {
+  id                                        String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  expense_number                            String       @unique @db.VarChar(50)
+  sales_order_id                            String       @db.Uuid
+  category                                  String       @db.VarChar(50)
+  vendor_name                               String       @db.VarChar(255)
+  amount                                    Decimal      @db.Decimal(14, 2)
+  expense_date                              DateTime     @default(dbgenerated("CURRENT_DATE")) @db.Date
+  receipt_url                               String?      @db.VarChar(255)
+  status                                    String       @default("APPROVED") @db.VarChar(50)
+  recorded_by                               String?      @db.Uuid
+  approved_by                               String?      @db.Uuid
+  notes                                     String?
+  created_at                                DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at                                DateTime     @default(now()) @db.Timestamptz(6)
+  users_project_expenses_approved_byTousers users?       @relation("project_expenses_approved_byTousers", fields: [approved_by], references: [id], onUpdate: NoAction)
+  users_project_expenses_recorded_byTousers users?       @relation("project_expenses_recorded_byTousers", fields: [recorded_by], references: [id], onUpdate: NoAction)
+  sales_orders                              sales_orders @relation(fields: [sales_order_id], references: [id], onUpdate: NoAction)
+
+  @@index([category], map: "idx_expenses_category")
+  @@index([sales_order_id], map: "idx_expenses_order")
+  @@index([status], map: "idx_expenses_status")
 }

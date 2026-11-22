@@ -10,6 +10,7 @@ import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../../uti
 import { tokenStore } from '../../utils/token-store.js';
 import { AppError } from '../../utils/response.js';
 import { withTransaction } from '../../database/index.js';
+import { mailService } from '../../services/mail.service.js';
 
 export const authService = {
   /**
@@ -241,11 +242,23 @@ export const authService = {
 
     await authRepository.setPasswordResetToken(user.id, tokenHash, expiresAt);
 
-    // In production: send email with reset link containing resetToken.
-    // For development, keep the reset token in audit logs.
+    // Send password reset email via Nodemailer
+    try {
+      await mailService.sendPasswordResetEmail({
+        to: user.email,
+        name: user.full_name,
+        resetToken
+      });
+    } catch (mailErr) {
+      console.warn('[Auth Service]: Could not dispatch reset email:', mailErr.message);
+    }
+
     console.log(`[Auth]: Password reset token generated for ${user.email}: ${resetToken}`);
 
-    return { message: 'If this email is registered, password reset instructions have been sent.' };
+    return {
+      message: 'If this email is registered, password reset instructions have been sent.',
+      devResetToken: process.env.NODE_ENV !== 'production' ? resetToken : undefined
+    };
   },
 
   /**
@@ -266,6 +279,33 @@ export const authService = {
     await authRepository.revokeTokenFamily(user.id);
 
     return { message: 'Password has been reset successfully. You may now log in.' };
+  },
+
+  /**
+   * Changes password for an authenticated user
+   */
+  async changePassword({ userId, currentPassword, newPassword }) {
+    const user = await authRepository.findUserWithPasswordById(userId);
+    if (!user) {
+      throw new AppError('User account not found.', 404, 'USER_NOT_FOUND');
+    }
+
+    const isCurrentValid = await comparePassword(currentPassword, user.password_hash);
+    if (!isCurrentValid) {
+      throw new AppError('The current password entered is incorrect.', 400, 'INVALID_CURRENT_PASSWORD');
+    }
+
+    if (currentPassword === newPassword) {
+      throw new AppError('New password must be different from your current password.', 400, 'PASSWORD_UNCHANGED');
+    }
+
+    const newHash = await hashPassword(newPassword);
+    await authRepository.updatePassword(user.id, newHash);
+
+    // Revoke active refresh tokens to force re-auth on other devices
+    await authRepository.revokeTokenFamily(user.id);
+
+    return { message: 'Your password has been changed successfully.' };
   }
 };
 

@@ -40,6 +40,19 @@ export const authRepository = {
   },
 
   /**
+   * Find user by ID including password_hash
+   */
+  async findUserWithPasswordById(id, tx = null) {
+    const client = tx || prisma;
+    return client.users.findFirst({
+      where: {
+        id,
+        deleted_at: null
+      }
+    });
+  },
+
+  /**
    * Fetch active roles and permissions for a user
    */
   async getUserRolesAndPermissions(userId, tx = null) {

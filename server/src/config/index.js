@@ -25,6 +25,14 @@ const configSchema = z.object({
   COOKIE_SECRET: z.string().default('development_cookie_secret_sunpower_erp'),
   STORAGE_ROOT: z.string().default('./storage'),
   MAX_UPLOAD_BYTES: z.coerce.number().default(10485760), // 10MB
+
+  // SMTP Email Configuration (Nodemailer)
+  SMTP_HOST: z.string().default(''),
+  SMTP_PORT: z.coerce.number().default(587),
+  SMTP_SECURE: z.coerce.boolean().default(false),
+  SMTP_USER: z.string().default(''),
+  SMTP_PASS: z.string().default(''),
+  SMTP_FROM: z.string().default('"SunPower Solar ERP" <notifications@sunpower.com>'),
 });
 
 const parsed = configSchema.safeParse(process.env);

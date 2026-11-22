@@ -46,7 +46,16 @@ function onRefreshFailed(err) {
 }
 
 export async function apiRequest(endpoint, options = {}, isRetry = false) {
-  const url = endpoint.startsWith('http') ? endpoint : `${BASE_URL}${endpoint}`;
+  let path = endpoint;
+  if (!path.startsWith('http')) {
+    if (BASE_URL && path.startsWith(BASE_URL)) {
+      path = path.slice(BASE_URL.length);
+    }
+    if (!path.startsWith('/')) {
+      path = `/${path}`;
+    }
+  }
+  const url = endpoint.startsWith('http') ? endpoint : `${BASE_URL}${path}`;
 
   const headers = {
     'Content-Type': 'application/json',

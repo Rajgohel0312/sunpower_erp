@@ -1,8 +1,10 @@
 import { prisma } from '../../database/prisma.js';
 import { AppError } from '../../utils/response.js';
+import { hashPassword } from '../../utils/crypto.js';
 import * as orderRepo from './order.repository.js';
 import * as quotationRepo from '../quotations/quotation.repository.js';
 import { crmRepository } from '../crm/crm.repository.js';
+import { mailService } from '../../services/mail.service.js';
 
 /**
  * Converts an accepted quotation into an operationally confirmed Sales Order
@@ -152,7 +154,94 @@ export async function convertQuotationToOrder(input, actor) {
     }
   }
 
+  // 7. Auto-onboard Customer to Customer Portal & dispatch credentials
+  try {
+    const portalAccount = await ensureCustomerPortalUser(customerId, actor);
+    if (portalAccount && !portalAccount.isExisting) {
+      console.log(`[Order Service]: Customer portal account created for ${portalAccount.email}`);
+    }
+  } catch (portalErr) {
+    console.warn('Could not auto-create customer portal account:', portalErr.message);
+  }
+
   return await orderRepo.getOrderById(order.id);
+}
+
+/**
+ * Ensures a Customer has an active user account for the Customer Portal.
+ * Automatically generates a secure temporary password and dispatches onboarding email.
+ */
+export async function ensureCustomerPortalUser(customerId, actor = null) {
+  const customer = await prisma.customers.findUnique({
+    where: { id: customerId }
+  });
+  if (!customer || !customer.email) return null;
+
+  const emailLower = customer.email.toLowerCase().trim();
+
+  // Check if a user with this email or phone already exists
+  const existingUser = await prisma.users.findFirst({
+    where: {
+      OR: [
+        { email: emailLower },
+        customer.phone_e164 ? { phone_e164: customer.phone_e164 } : { id: '00000000-0000-0000-0000-000000000000' }
+      ]
+    }
+  });
+
+  const customerRole = await prisma.roles.findFirst({ where: { code: 'CUSTOMER' } });
+
+  if (existingUser) {
+    if (customerRole) {
+      const hasRole = await prisma.user_roles.findFirst({
+        where: { user_id: existingUser.id, role_id: customerRole.id }
+      });
+      if (!hasRole) {
+        await prisma.user_roles.create({
+          data: { user_id: existingUser.id, role_id: customerRole.id }
+        });
+      }
+    }
+    return { userId: existingUser.id, email: existingUser.email, isExisting: true };
+  }
+
+  // Generate temporary password
+  const tempPassword = `SunPower@${Math.floor(1000 + Math.random() * 9000)}`;
+  const passwordHash = await hashPassword(tempPassword);
+
+  const newUser = await prisma.users.create({
+    data: {
+      email: emailLower,
+      full_name: customer.full_name,
+      phone_e164: customer.phone_e164 || null,
+      password_hash: passwordHash,
+      is_active: true
+    }
+  });
+
+  if (customerRole) {
+    await prisma.user_roles.create({
+      data: { user_id: newUser.id, role_id: customerRole.id }
+    });
+  }
+
+  // Dispatch Welcome & Customer Portal Credentials Email via Nodemailer
+  try {
+    await mailService.sendCustomerWelcomeEmail({
+      to: customer.email,
+      name: customer.full_name,
+      temporaryPassword: tempPassword
+    });
+  } catch (mailErr) {
+    console.warn('[Order Service]: Could not dispatch customer portal welcome email:', mailErr.message);
+  }
+
+  return {
+    userId: newUser.id,
+    email: newUser.email,
+    tempPassword,
+    isExisting: false
+  };
 }
 
 /**
