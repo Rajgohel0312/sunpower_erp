@@ -5,9 +5,26 @@
 
 import { AppError } from '../utils/response.js';
 
-export function validate(schemas = {}) {
+export function validate(schemas = {}, target = null) {
   return (req, res, next) => {
     try {
+      // Support validate(zodSchema, 'query') or validate(zodSchema) where target defaults to 'body'
+      if (schemas && typeof schemas.parse === 'function') {
+        const targetProp = target || 'body';
+        const parsed = schemas.parse(req[targetProp] || {});
+        try {
+          req[targetProp] = parsed;
+        } catch {
+          Object.defineProperty(req, targetProp, {
+            value: parsed,
+            writable: true,
+            configurable: true,
+            enumerable: true
+          });
+        }
+        return next();
+      }
+
       if (schemas.body) {
         req.body = schemas.body.parse(req.body);
       }

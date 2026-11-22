@@ -18,7 +18,8 @@ import {
   Receipt,
   ExternalLink,
   Barcode,
-  PackageCheck
+  PackageCheck,
+  LifeBuoy
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import Button from '../../components/common/Button.jsx';
@@ -57,6 +58,8 @@ export function OrderDetailPage() {
   const [dispatches, setDispatches] = useState([]);
   const [installations, setInstallations] = useState([]);
   const [serials, setSerials] = useState([]);
+  const [warranties, setWarranties] = useState([]);
+  const [tickets, setTickets] = useState([]);
 
   const fetchOrder = useCallback(async () => {
     setLoading(true);
@@ -66,14 +69,18 @@ export function OrderDetailPage() {
 
       // Concurrently fetch linked operations modules
       try {
-        const [dispRes, instRes, serRes] = await Promise.all([
+        const [dispRes, instRes, serRes, warRes, tckRes] = await Promise.all([
           api.get('/dispatches', { sales_order_id: id }),
           api.get('/installations', { sales_order_id: id }),
-          api.get('/inventory/serials', { current_order_id: id, limit: 50 })
+          api.get('/inventory/serials', { current_order_id: id, limit: 50 }),
+          api.get('/warranties', { sales_order_id: id }).catch(() => ({ data: [] })),
+          api.get('/tickets', { customer_id: res?.data?.customer_id }).catch(() => ({ data: [] }))
         ]);
         setDispatches(dispRes?.data || []);
         setInstallations(instRes?.data || []);
         setSerials(serRes?.data || []);
+        setWarranties(warRes?.data || []);
+        setTickets(tckRes?.data || []);
       } catch (opErr) {
         console.warn('Failed to fetch linked operations data:', opErr);
       }
@@ -498,6 +505,56 @@ export function OrderDetailPage() {
           </div>
         </div>
       )}
+
+      {/* 4. Registered Warranties & After-Sales Service */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="px-5 py-3.5 border-b border-slate-200 bg-slate-50/70 flex items-center justify-between">
+          <h3 className="text-xs font-bold text-midnight uppercase tracking-wider flex items-center gap-1.5">
+            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            Warranties & After-Sales Service ({warranties.length} Warranties, {tickets.length} Tickets)
+          </h3>
+          <div className="flex items-center gap-2">
+            <Link to={`/warranties?sales_order_id=${order.id}`}>
+              <Button variant="outline" size="sm" icon={ShieldCheck}>
+                View All Warranties
+              </Button>
+            </Link>
+            <Link to={`/tickets?customer_id=${order.customer_id}`}>
+              <Button variant="accent" size="sm" icon={LifeBuoy}>
+                + Log Ticket
+              </Button>
+            </Link>
+          </div>
+        </div>
+
+        {warranties.length === 0 ? (
+          <div className="p-4 text-center text-xs text-slate-500 bg-slate-50/30">
+            Warranties will be automatically registered once the installation is commissioned with customer digital sign-off.
+          </div>
+        ) : (
+          <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {warranties.map((w) => (
+              <div key={w.id} className="p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-mono font-bold text-midnight">{w.warranty_certificate_number}</span>
+                  <Badge variant={w.status === 'ACTIVE' ? 'success' : 'neutral'}>{w.status}</Badge>
+                </div>
+                <div className="font-semibold text-slate-700">
+                  {w.products?.model_name || w.policy_snapshot?.policy_name || 'System Hardware'}
+                </div>
+                {w.serial_numbers && (
+                  <div className="text-[11px] font-mono text-sky-600">
+                    SN: {w.serial_numbers.serial_number}
+                  </div>
+                )}
+                <div className="text-[10px] text-slate-400">
+                  Expires: {new Date(w.end_date).toLocaleDateString()}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Recorded Payment History Ledger */}
       {Array.isArray(order.snapshot_data?.recorded_payments) && order.snapshot_data.recorded_payments.length > 0 && (

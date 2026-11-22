@@ -86,6 +86,14 @@ export function DispatchesListPage() {
     setAutoFillLoading(true);
     setAutoFillMessage('');
     try {
+      // 0. Ensure catalog products are available in memory
+      let currentProducts = products;
+      if (!currentProducts || currentProducts.length === 0) {
+        const prodRes = await api.get('/catalog/products', { limit: 100 });
+        currentProducts = prodRes?.data || [];
+        setProducts(currentProducts);
+      }
+
       // 1. Fetch full order details
       const orderRes = await api.get(`/orders/${orderId}`);
       const order = orderRes?.data;
@@ -94,7 +102,8 @@ export function DispatchesListPage() {
       const serialsRes = await api.get('/serials', { current_order_id: orderId, limit: 100 });
       const reservedSerials = serialsRes?.data || [];
 
-      // 3. Extract components with cascade: snapshot_data.items -> quotations.quotation_items -> project_boms.project_bom_items
+      // 3. Extract components with cascade:
+      // snapshot_data.items -> quotations.quotation_items -> project_boms.project_bom_items -> quotations.project_boms.project_bom_items -> synthesized_bom_items
       let extractedItems = [];
       if (Array.isArray(order?.snapshot_data?.items) && order.snapshot_data.items.length > 0) {
         extractedItems = order.snapshot_data.items;
@@ -114,6 +123,45 @@ export function DispatchesListPage() {
           brand: bi.products?.brand,
           item_name: bi.products?.model_name || bi.products?.sku
         }));
+      } else if (Array.isArray(order?.quotations?.project_boms?.project_bom_items) && order.quotations.project_boms.project_bom_items.length > 0) {
+        extractedItems = order.quotations.project_boms.project_bom_items.map((bi) => ({
+          product_id: bi.product_id,
+          quantity: Number(bi.quantity) || 1,
+          sku: bi.products?.sku,
+          brand: bi.products?.brand,
+          item_name: bi.products?.model_name || bi.products?.sku
+        }));
+      } else if (Array.isArray(order?.synthesized_bom_items) && order.synthesized_bom_items.length > 0) {
+        extractedItems = order.synthesized_bom_items;
+      }
+
+      // 4. Intelligent solar kit auto-sizing fallback if order had zero item rows
+      if (extractedItems.length === 0 && currentProducts.length > 0) {
+        const capacityKw = Number(order?.system_capacity_kw) || 5.0;
+        const pnl = currentProducts.find((p) => p.sku?.includes('PNL') || p.category_id === 'panels') || currentProducts[0];
+        const inv = currentProducts.find((p) => p.sku?.includes('INV') || p.is_serial_tracked) || currentProducts[1];
+        const str = currentProducts.find((p) => p.sku?.includes('STR')) || currentProducts[2];
+        const cblDc = currentProducts.find((p) => p.sku?.includes('CBL-DC')) || currentProducts[3];
+        const cblAc = currentProducts.find((p) => p.sku?.includes('CBL-AC')) || currentProducts[4];
+        const acdb = currentProducts.find((p) => p.sku?.includes('ACDB')) || currentProducts[5];
+        const dcdb = currentProducts.find((p) => p.sku?.includes('DCDB')) || currentProducts[6];
+        const earth = currentProducts.find((p) => p.sku?.includes('EARTH')) || currentProducts[7];
+        const la = currentProducts.find((p) => p.sku?.includes('LA-')) || currentProducts[8];
+        const bos = currentProducts.find((p) => p.sku?.includes('ACC-INSTALL') || p.sku?.includes('BOS')) || currentProducts[9];
+
+        const panelQty = Math.max(1, Math.ceil((capacityKw * 1000) / 540));
+        const capInt = Math.max(1, Math.ceil(capacityKw));
+
+        if (pnl) extractedItems.push({ product_id: pnl.id, quantity: panelQty, item_name: pnl.model_name });
+        if (inv) extractedItems.push({ product_id: inv.id, quantity: 1, item_name: inv.model_name });
+        if (str) extractedItems.push({ product_id: str.id, quantity: capInt, item_name: str.model_name });
+        if (cblDc) extractedItems.push({ product_id: cblDc.id, quantity: Math.round(capacityKw * 18), item_name: cblDc.model_name });
+        if (cblAc) extractedItems.push({ product_id: cblAc.id, quantity: Math.round(capacityKw * 5), item_name: cblAc.model_name });
+        if (acdb) extractedItems.push({ product_id: acdb.id, quantity: 1, item_name: acdb.model_name });
+        if (dcdb) extractedItems.push({ product_id: dcdb.id, quantity: 1, item_name: dcdb.model_name });
+        if (earth) extractedItems.push({ product_id: earth.id, quantity: 3, item_name: earth.model_name });
+        if (la) extractedItems.push({ product_id: la.id, quantity: 1, item_name: la.model_name });
+        if (bos) extractedItems.push({ product_id: bos.id, quantity: capInt, item_name: bos.model_name });
       }
 
       // Map to form rows
@@ -123,7 +171,12 @@ export function DispatchesListPage() {
           .map((item) => {
             const resolvedProdId =
               item.product_id ||
-              products.find((p) => p.sku === item.sku || p.name === item.item_name)?.id;
+              currentProducts.find(
+                (p) =>
+                  (item.sku && p.sku?.toLowerCase() === item.sku?.toLowerCase()) ||
+                  (item.item_name && p.model_name?.toLowerCase() === item.item_name?.toLowerCase()) ||
+                  (item.brand && p.brand?.toLowerCase() === item.brand?.toLowerCase())
+              )?.id;
             return {
               product_id: resolvedProdId || '',
               quantity: Number(item.quantity) || 1
@@ -152,7 +205,7 @@ export function DispatchesListPage() {
       } else if (availableSerials.length > 0) {
         // Auto-suggest needed serialized count from available inventory serials
         const serializedCountNeeded = validMappedRows.reduce((acc, row) => {
-          const prod = products.find((p) => p.id === row.product_id);
+          const prod = currentProducts.find((p) => p.id === row.product_id);
           return acc + (prod?.is_serial_tracked ? row.quantity : 0);
         }, 0);
 
@@ -251,6 +304,7 @@ export function DispatchesListPage() {
 
   useEffect(() => {
     fetchDispatches();
+    loadReferenceData();
   }, [fetchDispatches]);
 
   // Load Reference Datasets for Modal
@@ -271,8 +325,10 @@ export function DispatchesListPage() {
     }
   };
 
-  const handleOpenCreateModal = () => {
-    loadReferenceData();
+  const handleOpenCreateModal = async () => {
+    if (products.length === 0 || orders.length === 0) {
+      await loadReferenceData();
+    }
     setDispatchOrderId('');
     setDispatchWarehouseId('');
     setDriverName('');
@@ -888,11 +944,11 @@ export function DispatchesListPage() {
             </div>
 
             <p className="text-[11px] text-slate-500">
-              One unique serial number per line for each serialized hardware item (Inverters, PV Panels):
+              Enter unit serial numbers (one per line). If you enter the Product SKU (e.g. <code>INV-GROWATT-5KW-1P</code>), the system automatically allocates available serials from the warehouse:
             </p>
             <textarea
               rows={3}
-              placeholder="SN-GROWATT-2026-001&#10;SN-GROWATT-2026-002"
+              placeholder="SN-INV-AHM-250488-01&#10;or Product Code: INV-GROWATT-5KW-1P"
               value={serialsText}
               onChange={(e) => setSerialsText(e.target.value)}
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs font-mono bg-white outline-none focus:ring-2 focus:ring-midnight"

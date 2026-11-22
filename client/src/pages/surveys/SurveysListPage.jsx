@@ -161,13 +161,13 @@ export function SurveysListPage() {
       case 'APPROVED':
         return <Badge variant="success">APPROVED</Badge>;
       case 'SUBMITTED':
-        return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">SUBMITTED</span>;
+        return <Badge variant="info">SUBMITTED</Badge>;
       case 'IN_PROGRESS':
         return <Badge variant="warning">IN PROGRESS</Badge>;
       case 'REVISION_REQUIRED':
-        return <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">REVISION</span>;
+        return <Badge variant="danger">REVISION</Badge>;
       default:
-        return <Badge variant="info">SCHEDULED</Badge>;
+        return <Badge variant="neutral">SCHEDULED</Badge>;
     }
   };
 

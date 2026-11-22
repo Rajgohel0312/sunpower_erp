@@ -18,7 +18,8 @@ import {
   ShoppingCart,
   ShieldCheck,
   Truck,
-  Wrench
+  Wrench,
+  LifeBuoy
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.jsx';
 import Badge from '../common/Badge.jsx';
@@ -104,6 +105,18 @@ export function AppLayout() {
       label: 'Installation Jobs',
       icon: Wrench,
       permission: 'installations:read'
+    },
+    {
+      to: '/warranties',
+      label: 'Warranties & AMC',
+      icon: ShieldCheck,
+      permission: 'warranties:read'
+    },
+    {
+      to: '/tickets',
+      label: 'Service Tickets',
+      icon: LifeBuoy,
+      permission: 'tickets:read'
     },
     {
       to: '/users',

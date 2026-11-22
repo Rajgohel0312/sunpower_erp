@@ -16,7 +16,9 @@ import {
   ExternalLink,
   QrCode,
   Layers,
-  User
+  User,
+  Barcode,
+  Sparkles
 } from 'lucide-react';
 import { api } from '../../api/client.js';
 import { useDebounce } from '../../hooks/useDebounce.js';
@@ -177,7 +179,7 @@ export function SerialExplorerPage() {
           <div className="relative flex-1 w-full">
             <input
               type="text"
-              placeholder="Scan or paste serial number (e.g. SN-INV-AHM-01)..."
+              placeholder="Scan/paste serial number (e.g. SN-INV-AHM-250488-01) or Product SKU (e.g. INV-GROWATT-5KW-1P)..."
               value={traceInput}
               onChange={(e) => setTraceInput(e.target.value)}
               className="w-full px-4 py-2.5 rounded-lg text-sm font-mono text-slate-900 bg-white border border-slate-300 outline-none focus:ring-2 focus:ring-solar-gold"
@@ -196,7 +198,83 @@ export function SerialExplorerPage() {
       </div>
 
       {/* Traced Asset Detail Card (if searched) */}
-      {tracedSerial && (
+      {tracedSerial && tracedSerial.is_product_sku ? (
+        <div className="bg-white rounded-xl border border-amber-300 shadow-sm p-5 space-y-4">
+          <div className="flex items-center justify-between border-b border-amber-100 pb-3">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-amber-600" />
+              <div>
+                <h3 className="font-mono font-bold text-base text-midnight">{tracedSerial.sku}</h3>
+                <span className="text-xs text-amber-700 font-medium">Catalog Item Code (Product SKU)</span>
+              </div>
+            </div>
+            <Badge variant="warning">Product Catalog Code</Badge>
+          </div>
+
+          <div className="p-3.5 bg-amber-50/70 rounded-lg border border-amber-200 text-xs text-amber-900 leading-relaxed">
+            <p className="font-semibold text-amber-950">{tracedSerial.message}</p>
+            <p className="text-[11px] text-amber-800 mt-1">
+              Note: <strong>{tracedSerial.sku}</strong> is the model definition. Physical hardware units installed on customer sites carry unique serial numbers (e.g. <code>SN-INV-AHM-...</code>).
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+            <div className="p-3 bg-slate-50 rounded-lg border border-slate-100 space-y-1">
+              <span className="text-slate-400 uppercase font-semibold text-[10px] block">Model & Category</span>
+              <span className="font-bold text-slate-900 block">{tracedSerial.brand} {tracedSerial.model_name}</span>
+              <span className="text-slate-600">{tracedSerial.category || 'Solar Hardware'}</span>
+              {tracedSerial.rated_capacity_w && (
+                <span className="text-[11px] font-mono text-sky-700 block">
+                  Capacity: {Number(tracedSerial.rated_capacity_w)} W
+                </span>
+              )}
+            </div>
+
+            <div className="p-3 bg-slate-50 rounded-lg border border-slate-100 space-y-1">
+              <span className="text-slate-400 uppercase font-semibold text-[10px] block">Total In-Stock Available</span>
+              <span className="font-mono font-bold text-emerald-600 text-base block">{tracedSerial.total_available} units</span>
+              <span className="text-slate-500 text-[11px]">Ready in warehouse depots</span>
+            </div>
+
+            <div className="p-3 bg-slate-50 rounded-lg border border-slate-100 space-y-1">
+              <span className="text-slate-400 uppercase font-semibold text-[10px] block">Depot Balances</span>
+              {(tracedSerial.stock_balances || []).map((sb) => (
+                <div key={sb.id} className="text-[11px] text-slate-700">
+                  <span className="font-semibold">{sb.warehouses?.name || 'Depot'}:</span> {Number(sb.quantity_available)} available ({Number(sb.quantity_on_hand)} on hand)
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {Array.isArray(tracedSerial.available_serials) && tracedSerial.available_serials.length > 0 && (
+            <div className="pt-2">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-xs font-bold text-midnight uppercase tracking-wider flex items-center gap-1.5">
+                  <Barcode className="w-4 h-4 text-solar-gold" /> Physical Unit Serial Numbers in Stock ({tracedSerial.available_serials.length} shown)
+                </h4>
+                <span className="text-[11px] text-slate-500">Click any serial to trace its full timeline:</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {tracedSerial.available_serials.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => {
+                      setTraceInput(s.serial_number);
+                      handleTraceSerial(s.serial_number);
+                    }}
+                    className="px-2.5 py-1.5 rounded-lg bg-slate-50 hover:bg-sky-50 border border-slate-200 hover:border-sky-300 font-mono text-xs text-slate-800 hover:text-sky-700 transition-colors flex items-center gap-1.5 shadow-sm"
+                  >
+                    <Search className="w-3 h-3 text-sky-500" />
+                    <span className="font-bold">{s.serial_number}</span>
+                    <span className="text-[10px] text-slate-400">({s.warehouse_name})</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      ) : tracedSerial ? (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 space-y-4">
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2">
@@ -282,7 +360,7 @@ export function SerialExplorerPage() {
             </div>
           )}
         </div>
-      )}
+      ) : null}
 
       {/* Filter Bar */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center gap-3 justify-between">

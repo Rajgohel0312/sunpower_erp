@@ -95,7 +95,9 @@ model customers {
   quotations         quotations[]
   sales_orders       sales_orders[]
   serial_numbers     serial_numbers[]
+  service_tickets    service_tickets[]
   surveys            surveys[]
+  warranties         warranties[]
 
   @@index([customer_code], map: "idx_customers_code")
   @@index([created_at(sort: Desc)], map: "idx_customers_created_at")
@@ -309,64 +311,69 @@ model user_roles {
 }
 
 model users {
-  id                                                      String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email                                                   String                     @unique @db.VarChar(255)
-  phone_e164                                              String                     @unique @db.VarChar(20)
-  password_hash                                           String                     @db.VarChar(255)
-  full_name                                               String                     @db.VarChar(150)
-  is_active                                               Boolean                    @default(true)
-  failed_login_attempts                                   Int                        @default(0)
-  locked_until                                            DateTime?                  @db.Timestamptz(6)
-  password_reset_token_hash                               String?                    @db.VarChar(64)
-  password_reset_expires_at                               DateTime?                  @db.Timestamptz(6)
-  created_at                                              DateTime                   @default(now()) @db.Timestamptz(6)
-  updated_at                                              DateTime                   @default(now()) @db.Timestamptz(6)
-  deleted_at                                              DateTime?                  @db.Timestamptz(6)
-  customer_documents                                      customer_documents[]
-  customers                                               customers[]
-  dispatches                                              dispatches[]
-  follow_ups                                              follow_ups[]
-  goods_receipts                                          goods_receipts[]
-  installation_checklists                                 installation_checklists[]
-  installation_jobs_installation_jobs_created_byTousers   installation_jobs[]        @relation("installation_jobs_created_byTousers")
-  installation_jobs_installation_jobs_team_lead_idTousers installation_jobs[]        @relation("installation_jobs_team_lead_idTousers")
-  installation_photos                                     installation_photos[]
-  installation_technicians                                installation_technicians[]
-  lead_activities                                         lead_activities[]
-  leads_leads_assigned_toTousers                          leads[]                    @relation("leads_assigned_toTousers")
-  leads_leads_created_byTousers                           leads[]                    @relation("leads_created_byTousers")
-  login_events                                            login_events[]
-  product_prices                                          product_prices[]
-  project_boms_project_boms_approved_byTousers            project_boms[]             @relation("project_boms_approved_byTousers")
-  project_boms_project_boms_created_byTousers             project_boms[]             @relation("project_boms_created_byTousers")
-  purchase_orders_purchase_orders_approved_byTousers      purchase_orders[]          @relation("purchase_orders_approved_byTousers")
-  purchase_orders_purchase_orders_created_byTousers       purchase_orders[]          @relation("purchase_orders_created_byTousers")
-  quotations_quotations_approved_byTousers                quotations[]               @relation("quotations_approved_byTousers")
-  quotations_quotations_created_byTousers                 quotations[]               @relation("quotations_created_byTousers")
-  refresh_tokens                                          refresh_tokens[]
-  sales_orders                                            sales_orders[]
-  serial_movements                                        serial_movements[]
-  stock_movements                                         stock_movements[]
-  stock_reservations                                      stock_reservations[]
-  surveys_surveys_assigned_engineer_idTousers             surveys[]                  @relation("surveys_assigned_engineer_idTousers")
-  surveys_surveys_created_byTousers                       surveys[]                  @relation("surveys_created_byTousers")
-  surveys_surveys_reviewed_byTousers                      surveys[]                  @relation("surveys_reviewed_byTousers")
-  user_roles                                              user_roles[]
-  warehouses                                              warehouses[]
+  id                                                            String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                                                         String                     @unique @db.VarChar(255)
+  phone_e164                                                    String                     @unique @db.VarChar(20)
+  password_hash                                                 String                     @db.VarChar(255)
+  full_name                                                     String                     @db.VarChar(150)
+  is_active                                                     Boolean                    @default(true)
+  failed_login_attempts                                         Int                        @default(0)
+  locked_until                                                  DateTime?                  @db.Timestamptz(6)
+  password_reset_token_hash                                     String?                    @db.VarChar(64)
+  password_reset_expires_at                                     DateTime?                  @db.Timestamptz(6)
+  created_at                                                    DateTime                   @default(now()) @db.Timestamptz(6)
+  updated_at                                                    DateTime                   @default(now()) @db.Timestamptz(6)
+  deleted_at                                                    DateTime?                  @db.Timestamptz(6)
+  customer_documents                                            customer_documents[]
+  customers                                                     customers[]
+  dispatches                                                    dispatches[]
+  follow_ups                                                    follow_ups[]
+  goods_receipts                                                goods_receipts[]
+  installation_checklists                                       installation_checklists[]
+  installation_jobs_installation_jobs_created_byTousers         installation_jobs[]        @relation("installation_jobs_created_byTousers")
+  installation_jobs_installation_jobs_team_lead_idTousers       installation_jobs[]        @relation("installation_jobs_team_lead_idTousers")
+  installation_photos                                           installation_photos[]
+  installation_technicians                                      installation_technicians[]
+  lead_activities                                               lead_activities[]
+  leads_leads_assigned_toTousers                                leads[]                    @relation("leads_assigned_toTousers")
+  leads_leads_created_byTousers                                 leads[]                    @relation("leads_created_byTousers")
+  login_events                                                  login_events[]
+  product_prices                                                product_prices[]
+  project_boms_project_boms_approved_byTousers                  project_boms[]             @relation("project_boms_approved_byTousers")
+  project_boms_project_boms_created_byTousers                   project_boms[]             @relation("project_boms_created_byTousers")
+  purchase_orders_purchase_orders_approved_byTousers            purchase_orders[]          @relation("purchase_orders_approved_byTousers")
+  purchase_orders_purchase_orders_created_byTousers             purchase_orders[]          @relation("purchase_orders_created_byTousers")
+  quotations_quotations_approved_byTousers                      quotations[]               @relation("quotations_approved_byTousers")
+  quotations_quotations_created_byTousers                       quotations[]               @relation("quotations_created_byTousers")
+  refresh_tokens                                                refresh_tokens[]
+  sales_orders                                                  sales_orders[]
+  serial_movements                                              serial_movements[]
+  service_tickets_service_tickets_assigned_technician_idTousers service_tickets[]          @relation("service_tickets_assigned_technician_idTousers")
+  service_tickets_service_tickets_created_byTousers             service_tickets[]          @relation("service_tickets_created_byTousers")
+  stock_movements                                               stock_movements[]
+  stock_reservations                                            stock_reservations[]
+  surveys_surveys_assigned_engineer_idTousers                   surveys[]                  @relation("surveys_assigned_engineer_idTousers")
+  surveys_surveys_created_byTousers                             surveys[]                  @relation("surveys_created_byTousers")
+  surveys_surveys_reviewed_byTousers                            surveys[]                  @relation("surveys_reviewed_byTousers")
+  ticket_activities                                             ticket_activities[]
+  user_roles                                                    user_roles[]
+  warehouses                                                    warehouses[]
+  warranty_replacements                                         warranty_replacements[]
 
   @@index([email], map: "idx_users_email")
   @@index([phone_e164], map: "idx_users_phone")
 }
 
 model product_categories {
-  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  code        String     @unique @db.VarChar(50)
-  name        String     @db.VarChar(100)
-  description String?
-  is_active   Boolean    @default(true)
-  created_at  DateTime   @default(now()) @db.Timestamptz(6)
-  updated_at  DateTime   @default(now()) @db.Timestamptz(6)
-  products    products[]
+  id                        String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                      String                      @unique @db.VarChar(50)
+  name                      String                      @db.VarChar(100)
+  description               String?
+  is_active                 Boolean                     @default(true)
+  created_at                DateTime                    @default(now()) @db.Timestamptz(6)
+  updated_at                DateTime                    @default(now()) @db.Timestamptz(6)
+  product_warranty_policies product_warranty_policies[]
+  products                  products[]
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
@@ -400,6 +407,7 @@ model products {
   stock_balances         stock_balances[]
   stock_movements        stock_movements[]
   stock_reservations     stock_reservations[]
+  warranties             warranties[]
 
   @@index([brand], map: "idx_products_brand")
   @@index([category_id], map: "idx_products_category")
@@ -738,7 +746,9 @@ model sales_orders {
   quotations               quotations           @relation(fields: [quotation_id], references: [id], onUpdate: NoAction)
   surveys                  surveys?             @relation(fields: [survey_id], references: [id], onUpdate: NoAction)
   serial_numbers           serial_numbers[]
+  service_tickets          service_tickets[]
   stock_reservations       stock_reservations[]
+  warranties               warranties[]
 
   @@index([created_at(sort: Desc)], map: "idx_sales_orders_created_at")
   @@index([customer_id], map: "idx_sales_orders_customer")
@@ -868,24 +878,28 @@ model serial_movements {
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model serial_numbers {
-  id                  String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  serial_number       String             @unique @db.VarChar(100)
-  product_id          String             @db.Uuid
-  warehouse_id        String?            @db.Uuid
-  status              String             @default("AVAILABLE") @db.VarChar(50)
-  current_order_id    String?            @db.Uuid
-  current_customer_id String?            @db.Uuid
-  grn_id              String?            @db.Uuid
-  manufacturing_date  DateTime?          @db.Date
-  created_at          DateTime           @default(now()) @db.Timestamptz(6)
-  updated_at          DateTime           @default(now()) @db.Timestamptz(6)
-  dispatch_serials    dispatch_serials[]
-  serial_movements    serial_movements[]
-  customers           customers?         @relation(fields: [current_customer_id], references: [id], onUpdate: NoAction)
-  sales_orders        sales_orders?      @relation(fields: [current_order_id], references: [id], onUpdate: NoAction)
-  goods_receipts      goods_receipts?    @relation(fields: [grn_id], references: [id], onUpdate: NoAction)
-  products            products           @relation(fields: [product_id], references: [id], onUpdate: NoAction)
-  warehouses          warehouses?        @relation(fields: [warehouse_id], references: [id], onUpdate: NoAction)
+  id                                                                                String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  serial_number                                                                     String                  @unique @db.VarChar(100)
+  product_id                                                                        String                  @db.Uuid
+  warehouse_id                                                                      String?                 @db.Uuid
+  status                                                                            String                  @default("AVAILABLE") @db.VarChar(50)
+  current_order_id                                                                  String?                 @db.Uuid
+  current_customer_id                                                               String?                 @db.Uuid
+  grn_id                                                                            String?                 @db.Uuid
+  manufacturing_date                                                                DateTime?               @db.Date
+  created_at                                                                        DateTime                @default(now()) @db.Timestamptz(6)
+  updated_at                                                                        DateTime                @default(now()) @db.Timestamptz(6)
+  dispatch_serials                                                                  dispatch_serials[]
+  serial_movements                                                                  serial_movements[]
+  customers                                                                         customers?              @relation(fields: [current_customer_id], references: [id], onUpdate: NoAction)
+  sales_orders                                                                      sales_orders?           @relation(fields: [current_order_id], references: [id], onUpdate: NoAction)
+  goods_receipts                                                                    goods_receipts?         @relation(fields: [grn_id], references: [id], onUpdate: NoAction)
+  products                                                                          products                @relation(fields: [product_id], references: [id], onUpdate: NoAction)
+  warehouses                                                                        warehouses?             @relation(fields: [warehouse_id], references: [id], onUpdate: NoAction)
+  service_tickets                                                                   service_tickets[]
+  warranties                                                                        warranties[]
+  warranty_replacements_warranty_replacements_defective_serial_idToserial_numbers   warranty_replacements[] @relation("warranty_replacements_defective_serial_idToserial_numbers")
+  warranty_replacements_warranty_replacements_replacement_serial_idToserial_numbers warranty_replacements[] @relation("warranty_replacements_replacement_serial_idToserial_numbers")
 
   @@index([current_order_id], map: "idx_serials_order")
   @@index([product_id, warehouse_id, status], map: "idx_serials_prod_wh")
@@ -1114,6 +1128,8 @@ model installation_jobs {
   installation_photos                         installation_photos[]
   installation_signoffs                       installation_signoffs[]
   installation_technicians                    installation_technicians[]
+  service_tickets                             service_tickets[]
+  warranties                                  warranties[]
 
   @@index([dispatch_id], map: "idx_installation_jobs_dispatch")
   @@index([sales_order_id], map: "idx_installation_jobs_order")
@@ -1172,4 +1188,130 @@ model installation_technicians {
   @@unique([installation_job_id, technician_id], map: "uq_job_technician")
   @@index([installation_job_id], map: "idx_installation_techs_job")
   @@index([technician_id], map: "idx_installation_techs_user")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model product_warranty_policies {
+  id                   String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  policy_code          String              @unique @db.VarChar(50)
+  policy_name          String              @db.VarChar(150)
+  category_id          String?             @db.Uuid
+  warranty_type        String              @db.VarChar(50)
+  duration_months      Int
+  terms_and_conditions String
+  is_active            Boolean             @default(true)
+  created_at           DateTime            @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime            @default(now()) @db.Timestamptz(6)
+  product_categories   product_categories? @relation(fields: [category_id], references: [id], onUpdate: NoAction)
+
+  @@index([category_id], map: "idx_warranty_policies_category")
+  @@index([policy_code], map: "idx_warranty_policies_code")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model service_tickets {
+  id                                                  String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ticket_number                                       String                  @unique @db.VarChar(50)
+  customer_id                                         String                  @db.Uuid
+  sales_order_id                                      String?                 @db.Uuid
+  installation_job_id                                 String?                 @db.Uuid
+  serial_number_id                                    String?                 @db.Uuid
+  warranty_id                                         String?                 @db.Uuid
+  category                                            String                  @default("INVERTER_FAULT") @db.VarChar(50)
+  priority                                            String                  @default("MEDIUM") @db.VarChar(20)
+  status                                              String                  @default("OPEN") @db.VarChar(50)
+  source                                              String                  @default("WEB") @db.VarChar(30)
+  reported_issue                                      String
+  diagnostic_notes                                    String?
+  resolution_notes                                    String?
+  assigned_technician_id                              String?                 @db.Uuid
+  sla_due_date                                        DateTime?               @db.Timestamptz(6)
+  resolved_at                                         DateTime?               @db.Timestamptz(6)
+  closed_at                                           DateTime?               @db.Timestamptz(6)
+  reopened_count                                      Int                     @default(0)
+  created_by                                          String?                 @db.Uuid
+  created_at                                          DateTime                @default(now()) @db.Timestamptz(6)
+  updated_at                                          DateTime                @default(now()) @db.Timestamptz(6)
+  deleted_at                                          DateTime?               @db.Timestamptz(6)
+  users_service_tickets_assigned_technician_idTousers users?                  @relation("service_tickets_assigned_technician_idTousers", fields: [assigned_technician_id], references: [id], onUpdate: NoAction)
+  users_service_tickets_created_byTousers             users?                  @relation("service_tickets_created_byTousers", fields: [created_by], references: [id], onUpdate: NoAction)
+  customers                                           customers               @relation(fields: [customer_id], references: [id], onUpdate: NoAction)
+  installation_jobs                                   installation_jobs?      @relation(fields: [installation_job_id], references: [id], onUpdate: NoAction)
+  sales_orders                                        sales_orders?           @relation(fields: [sales_order_id], references: [id], onUpdate: NoAction)
+  serial_numbers                                      serial_numbers?         @relation(fields: [serial_number_id], references: [id], onUpdate: NoAction)
+  warranties                                          warranties?             @relation(fields: [warranty_id], references: [id], onUpdate: NoAction)
+  ticket_activities                                   ticket_activities[]
+  warranty_replacements                               warranty_replacements[]
+
+  @@index([created_at(sort: Desc)], map: "idx_tickets_created_at")
+  @@index([customer_id], map: "idx_tickets_customer")
+  @@index([priority], map: "idx_tickets_priority")
+  @@index([serial_number_id], map: "idx_tickets_serial")
+  @@index([status], map: "idx_tickets_status")
+  @@index([assigned_technician_id], map: "idx_tickets_technician")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model ticket_activities {
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ticket_id       String          @db.Uuid
+  actor_id        String?         @db.Uuid
+  activity_type   String          @db.VarChar(50)
+  details         Json            @default("{}")
+  created_at      DateTime        @default(now()) @db.Timestamptz(6)
+  users           users?          @relation(fields: [actor_id], references: [id], onUpdate: NoAction)
+  service_tickets service_tickets @relation(fields: [ticket_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([ticket_id], map: "idx_ticket_activities_ticket")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model warranties {
+  id                          String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  warranty_certificate_number String             @unique @db.VarChar(50)
+  customer_id                 String             @db.Uuid
+  sales_order_id              String             @db.Uuid
+  installation_job_id         String?            @db.Uuid
+  serial_number_id            String?            @db.Uuid
+  product_id                  String?            @db.Uuid
+  policy_snapshot             Json
+  start_date                  DateTime           @default(now()) @db.Timestamptz(6)
+  end_date                    DateTime           @db.Timestamptz(6)
+  status                      String             @default("ACTIVE") @db.VarChar(50)
+  qr_code_hash                String?            @db.VarChar(100)
+  created_at                  DateTime           @default(now()) @db.Timestamptz(6)
+  updated_at                  DateTime           @default(now()) @db.Timestamptz(6)
+  service_tickets             service_tickets[]
+  customers                   customers          @relation(fields: [customer_id], references: [id], onUpdate: NoAction)
+  installation_jobs           installation_jobs? @relation(fields: [installation_job_id], references: [id], onUpdate: NoAction)
+  products                    products?          @relation(fields: [product_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  sales_orders                sales_orders       @relation(fields: [sales_order_id], references: [id], onUpdate: NoAction)
+  serial_numbers              serial_numbers?    @relation(fields: [serial_number_id], references: [id], onDelete: Restrict, onUpdate: NoAction)
+
+  @@index([warranty_certificate_number], map: "idx_warranties_cert_num")
+  @@index([customer_id], map: "idx_warranties_customer")
+  @@index([sales_order_id], map: "idx_warranties_order")
+  @@index([serial_number_id], map: "idx_warranties_serial")
+  @@index([status], map: "idx_warranties_status")
+}
+
+model warranty_replacements {
+  id                                                                         String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ticket_id                                                                  String          @db.Uuid
+  defective_serial_id                                                        String          @db.Uuid
+  replacement_serial_id                                                      String          @db.Uuid
+  replaced_by                                                                String?         @db.Uuid
+  replaced_at                                                                DateTime        @default(now()) @db.Timestamptz(6)
+  transfer_warranty                                                          Boolean         @default(true)
+  reason                                                                     String
+  notes                                                                      String?
+  created_at                                                                 DateTime        @default(now()) @db.Timestamptz(6)
+  serial_numbers_warranty_replacements_defective_serial_idToserial_numbers   serial_numbers  @relation("warranty_replacements_defective_serial_idToserial_numbers", fields: [defective_serial_id], references: [id], onUpdate: NoAction)
+  users                                                                      users?          @relation(fields: [replaced_by], references: [id], onUpdate: NoAction)
+  serial_numbers_warranty_replacements_replacement_serial_idToserial_numbers serial_numbers  @relation("warranty_replacements_replacement_serial_idToserial_numbers", fields: [replacement_serial_id], references: [id], onUpdate: NoAction)
+  service_tickets                                                            service_tickets @relation(fields: [ticket_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([defective_serial_id], map: "idx_warranty_replacements_defective")
+  @@index([replacement_serial_id], map: "idx_warranty_replacements_replacement")
+  @@index([ticket_id], map: "idx_warranty_replacements_ticket")
 }

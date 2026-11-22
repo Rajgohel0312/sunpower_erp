@@ -22,10 +22,10 @@ const VARIANT_MAP = {
 
 export function Badge({ children, variant = 'neutral', size = 'sm', className = '' }) {
   const style = VARIANT_MAP[variant] || VARIANT_MAP.neutral;
-  const sizeClasses = size === 'sm' ? 'text-xs px-2 py-0.5' : 'text-sm px-2.5 py-1';
+  const sizeClasses = size === 'sm' ? 'text-xs px-2.5 py-0.5' : 'text-sm px-3 py-1';
 
   return (
-    <span className={`inline-flex items-center font-medium rounded-full border ${style} ${sizeClasses} ${className}`}>
+    <span className={`inline-flex items-center justify-center font-medium rounded-full border whitespace-nowrap shrink-0 select-none ${style} ${sizeClasses} ${className}`}>
       {children}
     </span>
   );

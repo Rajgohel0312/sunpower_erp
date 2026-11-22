@@ -71,24 +71,70 @@ export async function createDispatch(input, actor) {
       );
     }
 
-    // 4. Validate provided serial numbers
+    // 4. Validate provided serial numbers (with automatic SKU-to-Serial resolution)
     let matchedSerials = [];
     if (providedSerials.length > 0) {
-      matchedSerials = await trx.serial_numbers.findMany({
+      const exactMatches = await trx.serial_numbers.findMany({
         where: {
           serial_number: { in: providedSerials }
         }
       });
 
-      if (matchedSerials.length !== providedSerials.length) {
-        const foundSet = new Set(matchedSerials.map((s) => s.serial_number));
-        const missing = providedSerials.filter((s) => !foundSet.has(s));
-        throw new AppError(
-          `The following serial numbers were not found in inventory: ${missing.join(', ')}`,
-          400,
-          'SERIALS_NOT_FOUND'
-        );
+      const matchedSerialNumbers = new Set(exactMatches.map((s) => s.serial_number));
+      const unmatchedInputs = providedSerials.filter((s) => !matchedSerialNumbers.has(s));
+
+      const autoResolvedSerials = [];
+      const claimedSerialIds = new Set(exactMatches.map((s) => s.id));
+
+      if (unmatchedInputs.length > 0) {
+        for (const inputStr of unmatchedInputs) {
+          const product = await trx.products.findFirst({
+            where: {
+              OR: [
+                { sku: { equals: inputStr, mode: 'insensitive' } },
+                { model_name: { equals: inputStr, mode: 'insensitive' } }
+              ]
+            }
+          });
+
+          if (product && serializedProductIds.has(product.id)) {
+            // Find an available or reserved serial for this order/warehouse
+            const candidate = await trx.serial_numbers.findFirst({
+              where: {
+                product_id: product.id,
+                warehouse_id: input.warehouse_id,
+                status: { in: ['RESERVED', 'AVAILABLE'] },
+                id: { notIn: Array.from(claimedSerialIds) }
+              },
+              orderBy: [
+                { status: 'asc' }, // RESERVED first, then AVAILABLE
+                { created_at: 'asc' }
+              ]
+            });
+
+            if (candidate) {
+              autoResolvedSerials.push(candidate);
+              claimedSerialIds.add(candidate.id);
+              continue;
+            } else {
+              throw new AppError(
+                `Product SKU '${inputStr}' entered in dispatch manifest, but no available or reserved serial units remain in warehouse.`,
+                400,
+                'INSUFFICIENT_PRODUCT_SERIALS'
+              );
+            }
+          }
+
+          // Unmatched input is neither a valid serial nor an in-manifest SKU
+          throw new AppError(
+            `The following serial numbers or Product SKUs were not found in inventory: ${inputStr}`,
+            400,
+            'SERIALS_NOT_FOUND'
+          );
+        }
       }
+
+      matchedSerials = [...exactMatches, ...autoResolvedSerials];
 
       // Check status of each serial: must be 'RESERVED' or 'AVAILABLE'
       for (const s of matchedSerials) {
@@ -131,7 +177,7 @@ export async function createDispatch(input, actor) {
     const lineItemsData = input.items.map((item) => ({
       dispatch_id: dispatch.id,
       product_id: item.product_id,
-      quantity_dispatched: item.quantity
+      quantity_dispatched: item.quantity || item.quantity_dispatched
     }));
     await dispatchRepo.createDispatchItems(lineItemsData, trx);
 

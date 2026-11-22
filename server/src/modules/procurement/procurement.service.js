@@ -227,25 +227,108 @@ export async function listSerialNumbers(query) {
 
 /**
  * Serial Traceability Timeline
+ * If input is a Product SKU, resolves catalog details, stock levels, and available serials.
  */
 export async function getSerialNumberTrace(serialNumber) {
-  const trace = await procurementRepo.getSerialNumberTrace(serialNumber);
-  if (!trace) {
-    throw new AppError(`Serial number ${serialNumber} not found`, 404, 'SERIAL_NOT_FOUND');
+  const trimmed = (serialNumber || '').trim();
+  const trace = await procurementRepo.getSerialNumberTrace(trimmed);
+  if (trace) {
+    return trace;
   }
-  return trace;
+
+  // Fallback: Check if the lookup is a Product SKU
+  const product = await prisma.products.findFirst({
+    where: {
+      OR: [
+        { sku: { equals: trimmed, mode: 'insensitive' } },
+        { model_name: { equals: trimmed, mode: 'insensitive' } }
+      ]
+    },
+    include: {
+      product_categories: true,
+      stock_balances: {
+        include: {
+          warehouses: true
+        }
+      }
+    }
+  });
+
+  if (product) {
+    const availableSerials = await prisma.serial_numbers.findMany({
+      where: {
+        product_id: product.id,
+        status: { in: ['AVAILABLE', 'RESERVED'] }
+      },
+      include: {
+        warehouses: true
+      },
+      take: 25,
+      orderBy: { serial_number: 'asc' }
+    });
+
+    const totalAvailable = (product.stock_balances || []).reduce(
+      (sum, b) => sum + Number(b.quantity_available || 0),
+      0
+    );
+
+    const totalOnHand = (product.stock_balances || []).reduce(
+      (sum, b) => sum + Number(b.quantity_on_hand || 0),
+      0
+    );
+
+    return {
+      is_product_sku: true,
+      sku: product.sku,
+      brand: product.brand,
+      model_name: product.model_name,
+      category: product.product_categories?.name,
+      rated_capacity_w: product.rated_capacity_w,
+      total_available: totalAvailable,
+      total_on_hand: totalOnHand,
+      stock_balances: product.stock_balances,
+      available_serials: availableSerials.map((s) => ({
+        id: s.id,
+        serial_number: s.serial_number,
+        status: s.status,
+        warehouse_name: s.warehouses?.name || 'Warehouse'
+      })),
+      message: `'${trimmed}' is a Product Catalog Code (SKU) for ${product.brand} ${product.model_name}. It currently has ${totalAvailable} units available in stock. Individual hardware units are identified by their unique serial numbers (e.g. ${availableSerials[0]?.serial_number || 'SN-...'}).`
+    };
+  }
+
+  throw new AppError(`Serial number or SKU '${serialNumber}' not found in registry`, 404, 'SERIAL_NOT_FOUND');
 }
 
 /**
  * Barcode Scanner Verification Endpoint
  */
 export async function verifySerial({ serial_number, expected_product_id, expected_warehouse_id }) {
-  const serial = await procurementRepo.getSerialNumberTrace(serial_number);
+  const trimmed = (serial_number || '').trim();
+  const serial = await procurementRepo.getSerialNumberTrace(trimmed);
   if (!serial) {
+    const product = await prisma.products.findFirst({
+      where: {
+        OR: [
+          { sku: { equals: trimmed, mode: 'insensitive' } },
+          { model_name: { equals: trimmed, mode: 'insensitive' } }
+        ]
+      }
+    });
+
+    if (product) {
+      return {
+        isValid: false,
+        reason: 'IS_PRODUCT_SKU',
+        is_product_sku: true,
+        message: `'${trimmed}' is a Product Catalog SKU (${product.brand} ${product.model_name}), not a physical equipment serial number. Please scan the unit serial barcode (e.g. SN-INV-...).`
+      };
+    }
+
     return {
       isValid: false,
       reason: 'SERIAL_NOT_FOUND',
-      message: `Serial number ${serial_number} does not exist in registry.`
+      message: `Serial number ${trimmed} does not exist in registry.`
     };
   }
 

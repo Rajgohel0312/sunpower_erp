@@ -25,6 +25,9 @@ import { SerialExplorerPage } from './pages/inventory/SerialExplorerPage';
 import { DispatchesListPage } from './pages/dispatches/DispatchesListPage';
 import { InstallationJobsPage } from './pages/installations/InstallationJobsPage';
 import { InstallationDetailPage } from './pages/installations/InstallationDetailPage';
+import { WarrantiesListPage } from './pages/warranties/WarrantiesListPage';
+import { ServiceTicketsPage } from './pages/tickets/ServiceTicketsPage';
+import { ServiceTicketDetailPage } from './pages/tickets/ServiceTicketDetailPage';
 
 // Auth Guard Wrapper
 const ProtectedRoute = () => {
@@ -103,6 +106,9 @@ export const App = () => {
             <Route path="/dispatches" element={<DispatchesListPage />} />
             <Route path="/installations" element={<InstallationJobsPage />} />
             <Route path="/installations/:id" element={<InstallationDetailPage />} />
+            <Route path="/warranties" element={<WarrantiesListPage />} />
+            <Route path="/tickets" element={<ServiceTicketsPage />} />
+            <Route path="/tickets/:id" element={<ServiceTicketDetailPage />} />
             <Route path="/users" element={<UsersListPage />} />
           </Route>
 

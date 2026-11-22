@@ -1,6 +1,7 @@
 import { withTransaction } from '../../database/index.js';
 import { AppError } from '../../utils/response.js';
 import * as installationRepo from './installation.repository.js';
+import { autoRegisterWarrantiesForCommissionedJob } from '../warranties/warranty.service.js';
 import { prisma } from '../../database/index.js';
 
 const STANDARD_SOLAR_CHECKLIST = [
@@ -326,6 +327,9 @@ export async function submitCustomerSignoff(jobId, input, actor) {
         data: movements
       });
     }
+
+    // 6. Automatically register warranty certificates for installed hardware & plant
+    await autoRegisterWarrantiesForCommissionedJob(jobId, trx);
 
     return installationRepo.getInstallationJobById(jobId, trx);
   });
